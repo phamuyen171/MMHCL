@@ -4,14 +4,18 @@ __pycache__/
 
 # # Ignore logs and checkpoints
 # *.log
-# *.zip
+*.zip
 *.pkl
 *.npy
 
 # # Ignore data folders
 data/
 # log/
+output/
 
 # Ignore OS files
 .DS_Store
 Thumbs.db
+
+*.out
+*.sh
