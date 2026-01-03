@@ -68,28 +68,43 @@ class MMHCL(nn.Module):
 
         self.tau = args.temperature
 
+        # thêm projection để kết hợp nhiều layers cho U2U/I2I convolution ---------------------------------------------------
+        self.user_layer_proj = nn.Linear((args.User_layers + 1) * embedding_dim, embedding_dim)
+        self.item_layer_proj = nn.Linear((args.Item_layers + 1) * embedding_dim, embedding_dim)
+        # -----------------------------------------------------------------------------------------------------------------  
+
     def forward(self, UI_mat, I2I_mat, U2U_mat):
 
         ii_emb = self.ii_embedding.weight
         uu_emb = self.uu_embedding.weight
 
+        # Thêm để nối các layers U2U/I2I embeddings lại với nhau trước khi projection
+        uu_embs = [uu_emb] # Layer 0
+        ii_embs = [ii_emb]
+
         if args.item_loss_ratio != 0:
             for i in range(args.Item_layers):
                 ii_emb = torch.sparse.mm(I2I_mat, ii_emb)
+                ii_embs.append(ii_emb)
+        ii_emb_concat = torch.cat(ii_embs, dim=1)  # Nối các layers lại với nhau
+        ii_emb = self.item_layer_proj(ii_emb_concat)  
 
         if args.user_loss_ratio != 0:
             for i in range(args.User_layers):
                 uu_emb = torch.sparse.mm(U2U_mat, uu_emb)
+                uu_embs.append(uu_emb)
+        uu_emb_concat = torch.cat(uu_embs, dim=1)  # Nối các layers lại với nhau
+        uu_emb = self.user_layer_proj(uu_emb_concat)
 
         if args.cf_model == 'LightGCN':
             ego_embeddings = torch.cat((self.user_ui_embedding.weight, self.item_ui_embedding.weight), dim=0)
-            all_embeddings = [ego_embeddings]
+            all_embeddings = [ego_embeddings] # List lưu embedding của tất cả layers
             for i in range(args.UI_layers):
                 side_embeddings = torch.sparse.mm(UI_mat, ego_embeddings)
                 ego_embeddings = side_embeddings
                 all_embeddings += [ego_embeddings]
             all_embeddings = torch.stack(all_embeddings, dim=1)
-            all_embeddings = all_embeddings.mean(dim=1, keepdim=False)
+            all_embeddings = all_embeddings.mean(dim=1, keepdim=False) # lấy trung bình embedding của tất cả layers
             u_ui_emb, i_ui_emb = torch.split(all_embeddings, [self.n_users, self.n_items], dim=0)
 
         elif args.cf_model == 'NGCF':
@@ -112,6 +127,8 @@ class MMHCL(nn.Module):
         elif args.cf_model == 'MF':
             u_ui_emb, i_ui_emb=self.user_ui_embedding.weight, self.item_ui_embedding.weight
 
+
+        # bước fusion embedding
         if args.item_loss_ratio != 0:
             i_ui_emb = i_ui_emb + F.normalize(ii_emb, p=2, dim=1)
 

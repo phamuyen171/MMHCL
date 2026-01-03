@@ -212,14 +212,14 @@ class Data(object):
         return adj_mat.tocsr(), norm_adj_mat.tocsr(), mean_adj_mat.tocsr()
 
     # ---------------------------------------Own--------------------------------------------------
-    def norm_dense(self, adj, normalization='origin'):
-        if normalization == 'sym':
+    def norm_dense(self, adj, normalization='origin'): # chuẩn hóa ma trận kề
+        if normalization == 'sym': # chuẩn hóa cho LightGCN chuẩn
             rowsum = torch.sum(adj, -1)
             d_inv_sqrt = torch.pow(rowsum, -0.5)
             d_inv_sqrt[torch.isinf(d_inv_sqrt)] = 0.
             d_mat_inv_sqrt = torch.diagflat(d_inv_sqrt)
             L_norm = torch.mm(torch.mm(d_mat_inv_sqrt, adj), d_mat_inv_sqrt)
-        elif normalization == "2sym":
+        elif normalization == "2sym": # đò thị không đối xứng
             rowsum = torch.sum(adj, -1)
             d_row_inv_sqrt = torch.pow(rowsum, -0.5)
             d_row_inv_sqrt[torch.isinf(d_row_inv_sqrt)] = 0.
@@ -232,17 +232,17 @@ class Data(object):
 
             L_norm = torch.mm(torch.mm(d_row_mat_inv_sqrt, adj), d_col_mat_inv_sqrt)
 
-        elif normalization == 'rw':
+        elif normalization == 'rw': # Random Walk / Row-normalization
             rowsum = torch.sum(adj, -1)
             d_inv = torch.pow(rowsum, -1)
             d_inv[torch.isinf(d_inv)] = 0.
             d_mat_inv = torch.diagflat(d_inv)
             L_norm = torch.mm(d_mat_inv, adj)
-        elif normalization == 'origin':
+        elif normalization == 'origin': # giữ nguyên
             L_norm = adj
         return L_norm
 
-    def get_UI_mat(self, norm_type='sym'):
+    def get_UI_mat(self, norm_type='sym'): # xây dựng ma trận kề (adjacency matrix), đồ thị bipartite --> message passing chính
         #   UI_mat default use sym normalization,and No-self-connection
         print("Loading UI_mat:(" + norm_type + ")")
         t = time()
@@ -263,7 +263,7 @@ class Data(object):
         print("End Load UI_mat:[%.1fs](" % (time() - t) + norm_type + ")")
         return UI_mat
 
-    def get_UI_single_mat(self, norm_type='2sym'):
+    def get_UI_single_mat(self, norm_type='2sym'): # tạo ma trận UI đơn (hypergraph incidence matrix A) --> build I2I/U2U
         print("Loading UI_single_mat:(" + norm_type + ")")
         t = time()
         try:
@@ -277,7 +277,7 @@ class Data(object):
         print("End Load UI_single_mat:[%.1fs](" % (time() - t) + norm_type + ")")
         return UI_mat
 
-    def get_U2U_mat(self, norm_type='rw'):
+    def get_U2U_mat(self, norm_type='rw'): # tạo ma trận user-user
         # U2U_mat default use row normalization,and No-self-connection
         print("Loading User_mat:(" + norm_type + ")")
         t = time()
@@ -288,7 +288,7 @@ class Data(object):
             User_mat = R @ R.T
             n_user = User_mat.size()[0]
             mask = torch.eye(n_user)
-            User_mat[mask > 0] = 0  # 抹去自连接
+            User_mat[mask > 0] = 0  # 抹去自连接 xóa self-connection --> gán đường chéo về 0 --> tự bỏ kết nối với chính mình
             User_mat = self.norm_dense(User_mat, norm_type)
             User_mat = User_mat.to_sparse()
             torch.save(User_mat, self.path + '/User_mat_' + norm_type + ".pth")
