@@ -91,6 +91,24 @@ class Data(object):
             except:
                 continue
 
+        self.R = self.R.tocsr()
+        self.R_tfidf = self.build_tfidf_R()
+
+
+    def build_tfidf_R(self):
+        R = self.R.tocsr()
+        df = np.array(R.sum(axis=0)).reshape(-1)
+        n_users = R.shape[0]
+
+        idf = np.log(n_users / (df + 1))
+
+        coo = R.tocoo()
+        rows, cols = coo.row, coo.col
+        data = idf[cols]
+
+        R_tfidf = sp.coo_matrix((data, (rows, cols)), shape=R.shape)
+        return R_tfidf.tocsr()
+
     def sparse_mx_to_torch_sparse_tensor(self, sparse_mx):
         """Convert a scipy sparse matrix to a torch sparse tensor."""
         sparse_mx = sparse_mx.tocoo().astype(np.float32)
@@ -284,7 +302,8 @@ class Data(object):
         try:
             User_mat = torch.load(self.path + '/User_mat_' + norm_type + ".pth")
         except Exception:
-            R = torch.from_numpy(self.R.todense()).float()
+            R = torch.from_numpy(self.R_tfidf.todense()).float()
+            #R = torch.from_numpy(self.R.todense()).float()
             User_mat = R @ R.T
             n_user = User_mat.size()[0]
             mask = torch.eye(n_user)
