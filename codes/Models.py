@@ -68,9 +68,9 @@ class MMHCL(nn.Module):
 
         self.tau = args.temperature
 
-        # thêm projection để kết hợp nhiều layers cho U2U/I2I convolution ---------------------------------------------------
-        self.user_layer_proj = nn.Linear((args.User_layers + 1) * embedding_dim, embedding_dim)
-        self.item_layer_proj = nn.Linear((args.Item_layers + 1) * embedding_dim, embedding_dim)
+        # thêm projection để kết hợp 2 layers cuối cho U2U/I2I convolution ---------------------------------------------------
+        self.user_layer_proj = nn.Linear(2 * embedding_dim, embedding_dim)
+        self.item_layer_proj = nn.Linear(2 * embedding_dim, embedding_dim)
         # -----------------------------------------------------------------------------------------------------------------  
 
     def forward(self, UI_mat, I2I_mat, U2U_mat):
@@ -78,22 +78,22 @@ class MMHCL(nn.Module):
         ii_emb = self.ii_embedding.weight
         uu_emb = self.uu_embedding.weight
 
-        # Thêm để nối các layers U2U/I2I embeddings lại với nhau trước khi projection
+        # Thêm để nối 2 layers U2U/I2I embeddings lại với nhau trước khi projection
         uu_embs = []
         ii_embs = []
 
         if args.item_loss_ratio != 0:
             for i in range(args.Item_layers):
                 ii_emb = torch.sparse.mm(I2I_mat, ii_emb)
-                if i == args.Item_layers - 2:
+                if i >= args.Item_layers - 2:
                     ii_embs.append(ii_emb)
-        ii_emb_concat = torch.cat(ii_embs, dim=1)  # Nối các layers lại với nhau
+        ii_emb_concat = torch.cat(ii_embs, dim=1)  # Nối 2 layers lại với nhau
         ii_emb = self.item_layer_proj(ii_emb_concat)  
 
         if args.user_loss_ratio != 0:
             for i in range(args.User_layers):
                 uu_emb = torch.sparse.mm(U2U_mat, uu_emb)
-                if i == args.User_layers - 2:
+                if i >= args.User_layers - 2:
                     uu_embs.append(uu_emb)
         uu_emb_concat = torch.cat(uu_embs, dim=1)  # Nối các layers lại với nhau
         uu_emb = self.user_layer_proj(uu_emb_concat)
