@@ -508,3 +508,39 @@ class Data(object):
         adj = (torch.zeros_like(adj)).scatter_(-1, knn_ind, knn_val)
         adj[adj > 0] = 1.
         return adj
+
+
+    def get_item_feats(self):
+        """
+        Return dict of item features as torch.FloatTensor:
+        {
+        'image': [n_items, feat_dim_img] or None,
+        'text':  [n_items, feat_dim_text] or None,
+        'audio': [n_items, feat_dim_audio] or None
+        }
+        """
+        image = None
+        text = None
+        audio = None
+
+        # image
+        try:
+            image = np.load('../data/{}/image_feat.npy'.format(args.dataset))
+        except Exception:
+            image = None
+
+        # text
+        try:
+            text = np.load('../data/{}/text_feat.npy'.format(args.dataset))
+        except Exception:
+            text = None
+
+        # audio (TikTok)
+        if args.dataset.lower() in ["tiktok", "tiktok".lower(), "Tiktok".lower()]:
+            try:
+                audio = np.load('../data/{}/audio_feat.npy'.format(args.dataset))
+            except Exception:
+                audio = None
+
+        feats = {'image': image, 'text': text, 'audio': audio}
+        return feats

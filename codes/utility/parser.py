@@ -63,4 +63,7 @@ def parse_args():
     parser.add_argument('--ablation_target', type=str, default="",
                         help='UI GNN layers')
 
+    parser.add_argument('--hyper_num', type=int, default=64,
+                        help='Numbers of hyperedges')
+    
     return parser.parse_args()

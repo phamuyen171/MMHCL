@@ -58,9 +58,18 @@ class Trainer(object):
 
         self.UI_mat = data_config['UI_mat'].cuda()
         self.User_mat = data_config['User_mat'].cuda()
-        self.Item_mat = data_config['Item_mat'].cuda()
+        # self.Item_mat = data_config['Item_mat'].cuda()
 
-        self.model = MMHCL(self.n_users, self.n_items, self.emb_dim)
+        # NEW: item feats (keep on CPU or move to GPU via model buffer)
+        self.item_feats = data_config.get('item_feats', {})
+
+        # OPTIONAL fallback old Item_mat if provided
+        self.Item_mat = data_config.get('Item_mat', None)
+        if self.Item_mat is not None:
+            self.Item_mat = self.Item_mat.cuda()
+        self.model = MMHCL(self.n_users, self.n_items, self.emb_dim, self.item_feats)
+
+        # self.model = MMHCL(self.n_users, self.n_items, self.emb_dim)
 
         self.model = self.model.cuda()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
@@ -241,13 +250,16 @@ if __name__ == '__main__':
 
 
     """multimodal"""
-    if args.dataset =="Tiktok":
-        Item_mat=data_generator.get_tiktok_I2I_Hypergraph_mul_mat()#Three modalities for tiktok.
-    elif args.dataset in ["Clothing","Sports"]:
-        Item_mat = data_generator.get_I2I_Hypergraph_mul_mat()#Two modalities, for Clothing and Sports.
+    # if args.dataset =="Tiktok":
+    #     Item_mat=data_generator.get_tiktok_I2I_Hypergraph_mul_mat()#Three modalities for tiktok.
+    # elif args.dataset in ["Clothing","Sports"]:
+    #     Item_mat = data_generator.get_I2I_Hypergraph_mul_mat()#Two modalities, for Clothing and Sports.
     config['UI_mat'] = UI_mat
     config['User_mat'] = User_mat
-    config['Item_mat'] = Item_mat
+    # config['Item_mat'] = Item_mat
+
+    item_feats = data_generator.get_item_feats()
+    config['item_feats'] = item_feats
 
     """single modality for ablation experiment"""
     # Image_item_mat, Text_item_mat,Audio_item_mat = data_generator.get_I2I_single_mat()

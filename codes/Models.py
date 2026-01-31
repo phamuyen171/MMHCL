@@ -40,7 +40,7 @@ class LightGCN(nn.Module):
 
 
 class MMHCL(nn.Module):
-    def __init__(self, n_users, n_items, embedding_dim):
+    def __init__(self, n_users, n_items, embedding_dim, item_feats=None):
         super(MMHCL, self).__init__()
         self.n_users = n_users
         self.n_items = n_items
@@ -51,6 +51,29 @@ class MMHCL(nn.Module):
 
         self.uu_embedding = nn.Embedding(n_users, self.embeddings_dim)
         self.ii_embedding = nn.Embedding(n_items, self.embeddings_dim)
+
+        self.item_feats = item_feats or {}
+        self.hyper_num = args.hyper_num
+        self.hyper_tau = args.temperature
+
+        if self.item_feats.get('image', None) is not None:
+            self.register_buffer("image_feat_buf", self.item_feats['image'])
+            feat_dim = self.item_feats['image'].shape[1]
+            self.v_hyper = nn.Parameter(torch.empty(feat_dim, self.hyper_num))
+            nn.init.xavier_uniform_(self.v_hyper)
+
+        if self.item_feats.get('text', None) is not None:
+            self.register_buffer("text_feat_buf", self.item_feats['text'])
+            feat_dim = self.item_feats['text'].shape[1]
+            self.t_hyper = nn.Parameter(torch.empty(feat_dim, self.hyper_num))
+            nn.init.xavier_uniform_(self.t_hyper)
+
+        if self.item_feats.get('audio', None) is not None:
+            self.register_buffer("audio_feat_buf", self.item_feats['audio'])
+            feat_dim = self.item_feats['audio'].shape[1]
+            self.a_hyper = nn.Parameter(torch.empty(feat_dim, self.hyper_num))
+            nn.init.xavier_uniform_(self.a_hyper)
+
 
         if args.cf_model == 'NGCF':
             self.GC_Linear_list = nn.ModuleList()
@@ -73,6 +96,36 @@ class MMHCL(nn.Module):
         self.item_layer_proj = nn.Linear(2 * embedding_dim, embedding_dim)
         # -----------------------------------------------------------------------------------------------------------------  
 
+    def _item_hyper_propagate(self, item_emb, item_feat, hyper_param, n_layers):
+        """
+        LGMRec-style:
+          H = gumbel_softmax(item_feat @ hyper_param)   [n_items, hyper_num]
+          repeat:
+            lat = H.T @ emb   (item -> hyperedge)
+            emb = H @ lat     (hyperedge -> item)
+        Return: projected embedding using last-2-layer concat (giữ logic bạn đang dùng).
+        """
+        H = torch.mm(item_feat, hyper_param)  # [n_items, hyper_num]
+        H = F.gumbel_softmax(H, tau=self.hyper_tau, dim=1, hard=False)
+
+        ret = item_emb
+        keep = []
+        for i in range(n_layers):
+            lat = torch.mm(H.t(), ret)   # [hyper_num, dim]
+            ret = torch.mm(H, lat)       # [n_items, dim]
+            if i >= n_layers - 2:
+                keep.append(ret)
+
+        # nếu n_layers < 2 thì fallback
+        if len(keep) == 0:
+            keep = [ret, ret]
+        elif len(keep) == 1:
+            keep = [keep[0], keep[0]]
+
+        concat = torch.cat(keep, dim=1)  # [n_items, 2*dim]
+        out = self.item_layer_proj(concat)
+        return out
+
     def forward(self, UI_mat, I2I_mat, U2U_mat):
 
         ii_emb = self.ii_embedding.weight
@@ -82,13 +135,42 @@ class MMHCL(nn.Module):
         uu_embs = []
         ii_embs = []
 
+        # if args.item_loss_ratio != 0:
+        #     for i in range(args.Item_layers):
+        #         ii_emb = torch.sparse.mm(I2I_mat, ii_emb)
+        #         if i >= args.Item_layers - 2:
+        #             ii_embs.append(ii_emb)
+        # ii_emb_concat = torch.cat(ii_embs, dim=1)  # Nối 2 layers lại với nhau
+        # ii_emb = self.item_layer_proj(ii_emb_concat)  
+
+                # ===== i2i hypergraph: use LGMRec-style if item features provided, else fallback to old I2I_mat =====
         if args.item_loss_ratio != 0:
-            for i in range(args.Item_layers):
-                ii_emb = torch.sparse.mm(I2I_mat, ii_emb)
-                if i >= args.Item_layers - 2:
-                    ii_embs.append(ii_emb)
-        ii_emb_concat = torch.cat(ii_embs, dim=1)  # Nối 2 layers lại với nhau
-        ii_emb = self.item_layer_proj(ii_emb_concat)  
+            use_lgm_i2i = (
+                hasattr(self, "v_hyper") or hasattr(self, "t_hyper") or hasattr(self, "a_hyper")
+            )
+
+            if use_lgm_i2i:
+                item_emb0 = self.ii_embedding.weight  # [n_items, dim]
+                outs = []
+
+                if hasattr(self, "image_feat_buf") and hasattr(self, "v_hyper"):
+                    outs.append(self._item_hyper_propagate(item_emb0, self.image_feat_buf, self.v_hyper, args.Item_layers))
+
+                if hasattr(self, "text_feat_buf") and hasattr(self, "t_hyper"):
+                    outs.append(self._item_hyper_propagate(item_emb0, self.text_feat_buf, self.t_hyper, args.Item_layers))
+
+                if hasattr(self, "audio_feat_buf") and hasattr(self, "a_hyper"):
+                    outs.append(self._item_hyper_propagate(item_emb0, self.audio_feat_buf, self.a_hyper, args.Item_layers))
+
+                # fuse multi-modal hyper results (đơn giản: sum rồi normalize)
+                ii_emb = 0
+                for o in outs:
+                    ii_emb = ii_emb + F.normalize(o, p=2, dim=1)
+                # nếu không có modality nào (hiếm), fallback
+                if isinstance(ii_emb, int):
+                    ii_emb = item_emb0
+        # ==========================================================================================================
+
 
         if args.user_loss_ratio != 0:
             for i in range(args.User_layers):
