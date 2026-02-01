@@ -54,22 +54,21 @@ class MMHCL(nn.Module):
 
         self.item_feats = item_feats or {}
         self.hyper_num = args.hyper_num
-        self.hyper_tau = args.temperature
 
         if self.item_feats.get('image', None) is not None:
-            self.register_buffer("image_feat_buf", self.item_feats['image'])
+            self.register_buffer("image_feat_buf", torch.from_numpy(self.item_feats['image']).float())
             feat_dim = self.item_feats['image'].shape[1]
             self.v_hyper = nn.Parameter(torch.empty(feat_dim, self.hyper_num))
             nn.init.xavier_uniform_(self.v_hyper)
 
         if self.item_feats.get('text', None) is not None:
-            self.register_buffer("text_feat_buf", self.item_feats['text'])
+            self.register_buffer("text_feat_buf", torch.from_numpy(self.item_feats['text']).float())
             feat_dim = self.item_feats['text'].shape[1]
             self.t_hyper = nn.Parameter(torch.empty(feat_dim, self.hyper_num))
             nn.init.xavier_uniform_(self.t_hyper)
 
         if self.item_feats.get('audio', None) is not None:
-            self.register_buffer("audio_feat_buf", self.item_feats['audio'])
+            self.register_buffer("audio_feat_buf", torch.from_numpy(self.item_feats['audio']).float())
             feat_dim = self.item_feats['audio'].shape[1]
             self.a_hyper = nn.Parameter(torch.empty(feat_dim, self.hyper_num))
             nn.init.xavier_uniform_(self.a_hyper)
@@ -92,8 +91,8 @@ class MMHCL(nn.Module):
         self.tau = args.temperature
 
         # thêm projection để kết hợp 2 layers cuối cho U2U/I2I convolution ---------------------------------------------------
-        self.user_layer_proj = nn.Linear(2 * embedding_dim, embedding_dim)
-        self.item_layer_proj = nn.Linear(2 * embedding_dim, embedding_dim)
+        # self.user_layer_proj = nn.Linear(2 * embedding_dim, embedding_dim)
+        # self.item_layer_proj = nn.Linear(2 * embedding_dim, embedding_dim)
         # -----------------------------------------------------------------------------------------------------------------  
 
     def _item_hyper_propagate(self, item_emb, item_feat, hyper_param, n_layers):
@@ -106,25 +105,26 @@ class MMHCL(nn.Module):
         Return: projected embedding using last-2-layer concat (giữ logic bạn đang dùng).
         """
         H = torch.mm(item_feat, hyper_param)  # [n_items, hyper_num]
-        H = F.gumbel_softmax(H, tau=self.hyper_tau, dim=1, hard=False)
+        H = F.gumbel_softmax(H, tau=self.tau, dim=1, hard=False)
 
         ret = item_emb
-        keep = []
+        # keep = []
         for i in range(n_layers):
             lat = torch.mm(H.t(), ret)   # [hyper_num, dim]
             ret = torch.mm(H, lat)       # [n_items, dim]
-            if i >= n_layers - 2:
-                keep.append(ret)
+            # if i >= n_layers - 2:
+            #     keep.append(ret)
 
-        # nếu n_layers < 2 thì fallback
-        if len(keep) == 0:
-            keep = [ret, ret]
-        elif len(keep) == 1:
-            keep = [keep[0], keep[0]]
+        # # nếu n_layers < 2 thì fallback
+        # if len(keep) == 0:
+        #     keep = [ret, ret]
+        # elif len(keep) == 1:
+        #     keep = [keep[0], keep[0]]
 
-        concat = torch.cat(keep, dim=1)  # [n_items, 2*dim]
-        out = self.item_layer_proj(concat)
-        return out
+        # concat = torch.cat(keep, dim=1)  # [n_items, 2*dim]
+        # out = self.item_layer_proj(concat)
+        # return out
+        return ret
 
     def forward(self, UI_mat, I2I_mat, U2U_mat):
 
@@ -175,10 +175,10 @@ class MMHCL(nn.Module):
         if args.user_loss_ratio != 0:
             for i in range(args.User_layers):
                 uu_emb = torch.sparse.mm(U2U_mat, uu_emb)
-                if i >= args.User_layers - 2:
-                    uu_embs.append(uu_emb)
-        uu_emb_concat = torch.cat(uu_embs, dim=1)  # Nối các layers lại với nhau
-        uu_emb = self.user_layer_proj(uu_emb_concat)
+        #         if i >= args.User_layers - 2:
+        #             uu_embs.append(uu_emb)
+        # uu_emb_concat = torch.cat(uu_embs, dim=1)  # Nối các layers lại với nhau
+        # uu_emb = self.user_layer_proj(uu_emb_concat)
 
         if args.cf_model == 'LightGCN':
             ego_embeddings = torch.cat((self.user_ui_embedding.weight, self.item_ui_embedding.weight), dim=0)
