@@ -60,6 +60,16 @@ class MMHCL(nn.Module):
                 self.GC_Linear_list.append(nn.Linear(eval(args.weight_size)[i], eval(args.weight_size)[i + 1]))
                 self.Bi_Linear_list.append(nn.Linear(eval(args.weight_size)[i], eval(args.weight_size)[i + 1]))
                 self.dropout_list.append(nn.Dropout(0.1))
+        elif args.cf_model == 'GraphSAGE':
+            # Full-graph GraphSAGE (mean aggregator): h^{l+1} = σ(W_self h^l + W_neigh (A h^l))
+            self.SAGE_self_list = nn.ModuleList()
+            self.SAGE_neigh_list = nn.ModuleList()
+            self.sage_dropout_list = nn.ModuleList()
+
+            for _ in range(args.UI_layers):
+                self.SAGE_self_list.append(nn.Linear(self.embeddings_dim, self.embeddings_dim))
+                self.SAGE_neigh_list.append(nn.Linear(self.embeddings_dim, self.embeddings_dim))
+                self.sage_dropout_list.append(nn.Dropout(0.1))
 
         nn.init.xavier_uniform_(self.user_ui_embedding.weight)
         nn.init.xavier_uniform_(self.item_ui_embedding.weight)
@@ -111,6 +121,28 @@ class MMHCL(nn.Module):
             u_ui_emb, i_ui_emb = torch.split(all_embeddings, [self.n_users, self.n_items], dim=0)
         elif args.cf_model == 'MF':
             u_ui_emb, i_ui_emb=self.user_ui_embedding.weight, self.item_ui_embedding.weight
+        elif args.cf_model == 'GraphSAGE':
+            ego_embeddings = torch.cat(
+                (self.user_ui_embedding.weight, self.item_ui_embedding.weight), dim=0
+            )
+            all_embeddings = [ego_embeddings]
+
+            for i in range(args.UI_layers):
+                # neighbor aggregation on bipartite graph
+                neigh_embeddings = torch.sparse.mm(UI_mat, ego_embeddings)
+
+                out = self.SAGE_self_list[i](ego_embeddings) + self.SAGE_neigh_list[i](neigh_embeddings)
+                out = F.leaky_relu(out)
+
+                out = self.sage_dropout_list[i](out)
+                ego_embeddings = F.normalize(out, p=2, dim=1)
+
+                all_embeddings += [ego_embeddings]
+
+            all_embeddings = torch.stack(all_embeddings, dim=1)
+            all_embeddings = all_embeddings.mean(dim=1, keepdim=False)
+            u_ui_emb, i_ui_emb = torch.split(all_embeddings, [self.n_users, self.n_items], dim=0)
+
 
         if args.item_loss_ratio != 0:
             i_ui_emb = i_ui_emb + F.normalize(ii_emb, p=2, dim=1)

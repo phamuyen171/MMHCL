@@ -236,7 +236,7 @@ if __name__ == '__main__':
     config['n_users'] = data_generator.n_users
     config['n_items'] = data_generator.n_items
 
-    UI_mat = data_generator.get_UI_mat()
+    UI_mat = data_generator.get_UI_mat(norm_type=args.norm_type)
     User_mat = data_generator.get_U2U_mat()
 
 
