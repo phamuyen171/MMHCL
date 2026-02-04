@@ -62,8 +62,5 @@ def parse_args():
 
     parser.add_argument('--ablation_target', type=str, default="",
                         help='UI GNN layers')
-    
-    parser.add_argument('--norm_type', type=str, default="sym",
-                        help='Adjacency matrix normalization operation')
 
     return parser.parse_args()
