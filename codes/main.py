@@ -66,6 +66,29 @@ class Trainer(object):
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         self.lr_scheduler = self.set_lr_scheduler()
 
+
+    def adaptive_negative_sampling(self, users, pos_items, neg_candidates, ua_embeddings, ia_embeddings):
+        """
+        users: [B]
+        pos_items: [B]
+        neg_candidates: [B, N]
+        """
+        u_e = ua_embeddings[users]                # [B, d]
+        p_e = ia_embeddings[pos_items]            # [B, d]
+        n_e = ia_embeddings[neg_candidates]       # [B, N, d]
+
+        p_scores = torch.sum(u_e * p_e, dim=-1, keepdim=True)   # [B, 1]
+        n_scores = torch.sum(u_e.unsqueeze(1) * n_e, dim=-1)    # [B, N]
+
+        safe_pos = torch.clamp(p_scores + args.alpha, min=1e-8)
+        target = args.beta * torch.pow(safe_pos, args.p + 1)    # [B, 1]
+
+        ahns_scores = torch.abs(n_scores - target)              # [B, N]
+        best_idx = torch.argmin(ahns_scores, dim=1)             # [B]
+
+        neg_items = torch.gather(neg_candidates, 1, best_idx.unsqueeze(1)).squeeze(1)
+        return neg_items
+
     def set_lr_scheduler(self):
         fac = lambda epoch: 0.96 ** (epoch / 50)
         scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=fac)
@@ -101,10 +124,29 @@ class Trainer(object):
                 self.model.train()
                 self.optimizer.zero_grad()
                 sample_t1 = time()
-                users, pos_items, neg_items = data_generator.sample()
+                # users, pos_items, neg_items = data_generator.sample()
+                users, pos_items, neg_candidates = data_generator.sample()
                 sample_time += time() - sample_t1
 
+                # ua_embeddings, ia_embeddings, ii, uu = self.model(self.UI_mat, self.Item_mat, self.User_mat)
+                # u_g_embeddings = ua_embeddings[users]
+                # pos_i_g_embeddings = ia_embeddings[pos_items]
+                # neg_i_g_embeddings = ia_embeddings[neg_items]
+
+                # users = torch.LongTensor(users).cuda()
+                # pos_items = torch.LongTensor(pos_items).cuda()
+                # neg_candidates = torch.LongTensor(neg_candidates).cuda()
+                device = self.UI_mat.device
+                users = torch.as_tensor(users, dtype=torch.long, device=device)
+                pos_items = torch.as_tensor(pos_items, dtype=torch.long, device=device)
+                neg_candidates = torch.as_tensor(neg_candidates, dtype=torch.long, device=device)
+
                 ua_embeddings, ia_embeddings, ii, uu = self.model(self.UI_mat, self.Item_mat, self.User_mat)
+
+                neg_items = self.adaptive_negative_sampling(
+                    users, pos_items, neg_candidates, ua_embeddings, ia_embeddings
+                )
+
                 u_g_embeddings = ua_embeddings[users]
                 pos_i_g_embeddings = ia_embeddings[pos_items]
                 neg_i_g_embeddings = ia_embeddings[neg_items]
@@ -114,13 +156,21 @@ class Trainer(object):
 
                 batch_contrastive_loss1 = self.model.batched_contrastive_loss(ia_embeddings, ii)
 
-                batch_contrastive_loss1 *= args.item_loss_ratio
-                batch_contrastive_loss2 = self.model.batched_contrastive_loss(ua_embeddings, uu)
+                # batch_contrastive_loss1 *= args.item_loss_ratio
+                # batch_contrastive_loss2 = self.model.batched_contrastive_loss(ua_embeddings, uu)
 
-                batch_contrastive_loss2 *= args.user_loss_ratio
+                # batch_contrastive_loss2 *= args.user_loss_ratio
 
-                batch_contrastive_loss = batch_contrastive_loss1 + batch_contrastive_loss2
+                # batch_contrastive_loss = batch_contrastive_loss1 + batch_contrastive_loss2
+                batch_contrastive_loss = 0.0
 
+                if args.item_loss_ratio != 0:
+                    batch_contrastive_loss1 = self.model.batched_contrastive_loss(ia_embeddings, ii)
+                    batch_contrastive_loss += args.item_loss_ratio * batch_contrastive_loss1
+
+                if args.user_loss_ratio != 0:
+                    batch_contrastive_loss2 = self.model.batched_contrastive_loss(ua_embeddings, uu)
+                    batch_contrastive_loss += args.user_loss_ratio * batch_contrastive_loss2
 
 
                 batch_loss = batch_mf_loss + batch_emb_loss + batch_reg_loss + batch_contrastive_loss

@@ -114,24 +114,30 @@ class Data(object):
 
         # users = self.exist_users[:]
 
-        def sample_pos_items_for_u(u, num):
-            pos_items = self.train_items[u]
-            n_pos_items = len(pos_items)
-            pos_batch = []
-            while True:
-                if len(pos_batch) == num: break
-                pos_id = np.random.randint(low=0, high=n_pos_items, size=1)[0]
-                pos_i_id = pos_items[pos_id]
+        # def sample_pos_items_for_u(u, num):
+        #     pos_items = self.train_items[u]
+        #     n_pos_items = len(pos_items)
+        #     pos_batch = []
+        #     while True:
+        #         if len(pos_batch) == num: break
+        #         pos_id = np.random.randint(low=0, high=n_pos_items, size=1)[0]
+        #         pos_i_id = pos_items[pos_id]
 
-                if pos_i_id not in pos_batch:
-                    pos_batch.append(pos_i_id)
-            return pos_batch
+        #         if pos_i_id not in pos_batch:
+        #             pos_batch.append(pos_i_id)
+        #     return pos_batch
+
+        def sample_pos_item_for_u(u):
+            pos_items = self.train_items[u]
+            pos_id = np.random.randint(low=0, high=len(pos_items))
+            return pos_items[pos_id]
 
         def sample_neg_items_for_u(u, num):
             neg_items = []
             while True:
                 if len(neg_items) == num: break
-                neg_id = np.random.randint(low=0, high=self.n_items, size=1)[0]
+                # neg_id = np.random.randint(low=0, high=self.n_items, size=1)[0]
+                neg_id = np.random.randint(low=0, high=self.n_items)
                 if neg_id not in self.train_items[u] and neg_id not in neg_items:
                     neg_items.append(neg_id)
             return neg_items
@@ -140,12 +146,22 @@ class Data(object):
             neg_items = list(set(self.neg_pools[u]) - set(self.train_items[u]))
             return rd.sample(neg_items, num)
 
-        pos_items, neg_items = [], []
-        for u in users:
-            pos_items += sample_pos_items_for_u(u, 1)
-            neg_items += sample_neg_items_for_u(u, 1)
-            # neg_items += sample_neg_items_for_u(u, 3)
-        return users, pos_items, neg_items
+        # pos_items, neg_items = [], []
+
+        # for u in users:
+        #     pos_items += sample_pos_items_for_u(u, 1)
+        #     neg_items += sample_neg_items_for_u(u, 1)
+        #     # neg_items += sample_neg_items_for_u(u, 3)
+        # return users, pos_items, neg_items
+
+        pos_items = []
+        neg_candidates = []
+        users = np.array(users, dtype=np.int64)                    # [B]
+        pos_items = np.array(pos_items, dtype=np.int64)            # [B]
+        neg_candidates = np.array(neg_candidates, dtype=np.int64)  # [B, n_negs]
+
+        return users, pos_items, neg_candidates
+
 
     # 原始的Latiice
     # general Model 返回的是numpy类型的，度归一化用-1
