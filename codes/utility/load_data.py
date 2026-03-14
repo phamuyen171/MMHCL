@@ -156,6 +156,11 @@ class Data(object):
 
         pos_items = []
         neg_candidates = []
+        
+        for u in users:
+            pos_items.append(sample_pos_item_for_u(u))
+            neg_candidates.append(sample_neg_items_for_u(u, self.n_negs))
+        
         users = np.array(users, dtype=np.int64)                    # [B]
         pos_items = np.array(pos_items, dtype=np.int64)            # [B]
         neg_candidates = np.array(neg_candidates, dtype=np.int64)  # [B, n_negs]
