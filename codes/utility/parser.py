@@ -29,6 +29,14 @@ def parse_args():
                         help='5-core for warm-start; 0-core for cold start')
     parser.add_argument('--topk', type=int, default=5,
                         help='K value of k-NN sparsification')
+    parser.add_argument('--i2i_graph_mode', type=str, default='knn',
+                    help='i2i graph construction mode: {knn, mutual_knn}')
+    parser.add_argument('--densify_topm', type=int, default=0,
+                    help='Number of new 2-hop neighbors added per node')
+    #parser.add_argument('--densify_threshold', type=float, default=0.0,
+    #                    help='Minimum similarity threshold for densification')
+    #parser.add_argument('--degree_cap', type=int, default=0,
+    #                    help='Maximum allowed degree after densification, 0 means no cap')
     parser.add_argument('--cf_model', nargs='?', default='LightGCN',
                         help='Downstream Collaborative Filtering model {MF, NGCF, LightGCN}')
     parser.add_argument('--early_stopping_patience', type=int, default=5,

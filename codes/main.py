@@ -28,7 +28,7 @@ args = parse_args()
 
 # print(torch.cuda.current_device())
 
-path_name=f"uu_ii={args.User_layers}_{args.Item_layers}_{args.user_loss_ratio}_{args.item_loss_ratio}" \
+path_name=f"graph={args.i2i_graph_mode}_uu_ii={args.User_layers}_{args.Item_layers}_{args.user_loss_ratio}_{args.item_loss_ratio}" \
           f"_topk={args.topk}_t={args.temperature}_regs={args.regs}_dim={args.embed_size}_{args.ablation_target}"
 path = f"../{args.dataset}/{path_name}/"#Separate folders for records and weights
 record_path=f"../{args.dataset}/MM/"#Folders summarizing ablation experiments
