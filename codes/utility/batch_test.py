@@ -11,7 +11,7 @@ cores = multiprocessing.cpu_count() // 5
 args = parse_args()
 Ks = eval(args.Ks)
 
-data_generator = Data(path=args.data_path + args.dataset, batch_size=args.batch_size)
+data_generator = Data(path=args.data_path + args.dataset, batch_size=args.batch_size, n_negs=args.n_negs)
 USR_NUM, ITEM_NUM = data_generator.n_users, data_generator.n_items
 N_TRAIN, N_TEST = data_generator.n_train, data_generator.n_test
 BATCH_SIZE = args.batch_size

@@ -63,4 +63,7 @@ def parse_args():
     parser.add_argument('--ablation_target', type=str, default="",
                         help='UI GNN layers')
 
+    
+    parser.add_argument("--n_negs", type=int, default=32, help="number of candidate negative")
+
     return parser.parse_args()

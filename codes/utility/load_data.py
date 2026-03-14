@@ -12,9 +12,10 @@ import torch
 
 
 class Data(object):
-    def __init__(self, path, batch_size):
+    def __init__(self, path, batch_size, n_negs=32):
         self.path = path + '/%d-core' % args.core
         self.batch_size = batch_size
+        self.n_negs = n_negs
 
         train_file = path + '/%d-core/train.json' % (args.core)
         val_file = path + '/%d-core/val.json' % (args.core)
@@ -160,7 +161,6 @@ class Data(object):
         for u in users:
             pos_items.append(sample_pos_item_for_u(u))
             neg_candidates.append(sample_neg_items_for_u(u, self.n_negs))
-        
         users = np.array(users, dtype=np.int64)                    # [B]
         pos_items = np.array(pos_items, dtype=np.int64)            # [B]
         neg_candidates = np.array(neg_candidates, dtype=np.int64)  # [B, n_negs]
