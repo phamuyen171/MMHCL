@@ -65,5 +65,8 @@ def parse_args():
 
     
     parser.add_argument("--n_negs", type=int, default=32, help="number of candidate negative")
+    parser.add_argument("--p", type=int, default=-2, help="power")
+    parser.add_argument("--alpha", type=float, default=1.0, help="alpha")
+    parser.add_argument("--beta", type=float, default=0.1, help="beta")
 
     return parser.parse_args()
