@@ -326,20 +326,20 @@ class Data(object):
 
     # --------------------- Cache path helpers ---------------------
     def get_single_modality_cache_paths(self, norm_type):
-        image_cache = self.path + f'/Image_mat_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}.pth'
-        text_cache = self.path + f'/Text_mat_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}.pth'
-        audio_cache = self.path + f'/Audio_mat_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}.pth'
+        image_cache = self.path + f'/Image_mat_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}_topm_{args.densify_topm}.pth'
+        text_cache = self.path + f'/Text_mat_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}_topm_{args.densify_topm}.pth'
+        audio_cache = self.path + f'/Audio_mat_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}_topm_{args.densify_topm}.pth'
         return image_cache, text_cache, audio_cache
 
     def get_hypergraph_cache_path(self, norm_type):
-        return f"{self.path}/hypergraph_mat_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}.pth"
+        return f"{self.path}/hypergraph_mat_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}_topm_{args.densify_topm}.pth"
 
     def get_hypergraph_mul_cache_path(self, norm_type):
-        return f"{self.path}/hypergraph_mat_mul_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}.pth"
+        return f"{self.path}/hypergraph_mat_mul_{norm_type}_{args.i2i_graph_mode}_topk_{args.topk}_topm_{args.densify_topm}.pth"
 
     # --------------------- I2I single-modality matrices ---------------------
     def get_I2I_single_mat(self, norm_type="sym"):
-        print(f"Loading I2I media-specific mat:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}")
+        print(f"Loading I2I multi-media Hypergraph mat:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}_topm:{args.densify_topm}")
         t = time()
 
         image_cache, text_cache, audio_cache = self.get_single_modality_cache_paths(norm_type)
@@ -400,7 +400,7 @@ class Data(object):
 
     # --------------------- I2I hypergraph matrices ---------------------
     def get_I2I_Hypergrah_mat(self, norm_type="origin"):
-        print(f"Loading I2I multi-media Hypergraph mat:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}")
+        print(f"Loading I2I multi-media Hypergraph mat:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}_topm:{args.densify_topm}")
         t = time()
         cache_path = self.get_hypergraph_cache_path(norm_type)
 
@@ -435,7 +435,7 @@ class Data(object):
         return Hypergraph
 
     def get_I2I_Hypergraph_mul_mat(self, norm_type="sym"):
-        print(f"Loading I2I multi-media Hypergraph mul mat*mat.T:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}")
+        print(f"Loading I2I multi-media Hypergraph mul mat*mat.T:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}_topm:{args.densify_topm}")
         t = time()
         cache_path = self.get_hypergraph_mul_cache_path(norm_type)
 
@@ -454,7 +454,7 @@ class Data(object):
 
     # --------------------- PT versions ---------------------
     def get_I2I_Hypergrah_mat_pt(self, norm_type="origin"):
-        print(f"Loading I2I multi-media Hypergraph mat PT:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}")
+        print(f"Loading I2I multi-media Hypergraph mat PT:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}_topm:{args.densify_topm}")
         t = time()
         cache_path = self.get_hypergraph_cache_path(norm_type)
 
@@ -490,7 +490,7 @@ class Data(object):
         return Hypergraph
 
     def get_I2I_Hypergraph_mul_mat_pt(self, norm_type="sym"):
-        print(f"Loading I2I multi-media Hypergraph mul mat*mat.T PT:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}")
+        print(f"Loading I2I multi-media Hypergraph mul mat*mat.T PT:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}_topm:{args.densify_topm}")
         t = time()
         cache_path = self.get_hypergraph_mul_cache_path(norm_type)
 
@@ -509,7 +509,7 @@ class Data(object):
 
     # --------------------- Tiktok-specific versions ---------------------
     def get_tiktok_I2I_Hypergrah_mat(self, norm_type="origin"):
-        print(f"Loading I2I multi-media Hypergraph mat:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}")
+        print(f"Loading I2I multi-media Hypergraph mat:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}_topm:{args.densify_topm}")
         t = time()
         cache_path = self.get_hypergraph_cache_path(norm_type)
 
@@ -552,7 +552,7 @@ class Data(object):
         return Hypergraph
 
     def get_tiktok_I2I_Hypergraph_mul_mat(self, norm_type="sym"):
-        print(f"Loading I2I multi-media Hypergraph mul mat*mat.T:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}")
+        print(f"Loading I2I multi-media Hypergraph mul mat*mat.T:({norm_type})_{args.i2i_graph_mode}_topk:{args.topk}_topm:{args.densify_topm}")
         t = time()
         cache_path = self.get_hypergraph_mul_cache_path(norm_type)
 
@@ -610,10 +610,51 @@ class Data(object):
         mutual_adj = knn_adj * knn_adj.T
         return mutual_adj
 
+    def densify_graph_2hop_common_neighbors(self, base_adj, topm):
+        """
+        base_adj: dense binary adjacency matrix, shape [N, N]
+        topm: number of 2-hop neighbors to add for each node
+        """
+        if topm <= 0:
+            return base_adj
+
+        # 2-hop counts: number of paths of length 2
+        two_hop_scores = torch.mm(base_adj, base_adj)
+
+        # Remove self-loops
+        n = two_hop_scores.size(0)
+        idx = torch.arange(n, device=two_hop_scores.device)
+        two_hop_scores[idx, idx] = 0
+
+        # Do not re-add existing 1-hop edges
+        two_hop_scores[base_adj > 0] = 0
+
+        # For each node, select top-M 2-hop candidates
+        add_adj = torch.zeros_like(base_adj)
+
+        if topm > 0:
+            topm = min(topm, two_hop_scores.size(1))
+            vals, inds = torch.topk(two_hop_scores, k=topm, dim=-1)
+
+            # only keep candidates with score > 0
+            valid_mask = vals > 0
+            add_adj.scatter_(-1, inds, valid_mask.float())
+
+        densified_adj = base_adj + add_adj
+        densified_adj[densified_adj > 0] = 1.0
+        return densified_adj
+    
+    def build_mutual_knn_2hop_graph(self, adj, topk, topm=2, keep_self=False):
+        mutual_adj = self.build_mutual_knn_graph(adj, topk, keep_self=keep_self)
+        densified_adj = self.densify_graph_2hop_common_neighbors(mutual_adj, topm=topm)
+        return densified_adj
+
     def build_i2i_graph(self, adj, topk, graph_mode="knn", keep_self=False):
         if graph_mode == "knn":
             return self.build_knn_graph(adj, topk, keep_self=keep_self)
         elif graph_mode == "mutual_knn":
             return self.build_mutual_knn_graph(adj, topk, keep_self=keep_self)
+        elif graph_mode == "mutual_knn_2hop":
+            return self.build_mutual_knn_2hop_graph(adj, topk, topm=args.densify_topm, keep_self=keep_self)
         else:
             raise ValueError(f"Unsupported graph_mode: {graph_mode}")

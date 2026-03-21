@@ -30,9 +30,11 @@ def parse_args():
     parser.add_argument('--topk', type=int, default=5,
                         help='K value of k-NN sparsification')
     parser.add_argument('--i2i_graph_mode', type=str, default='knn',
-                    help='i2i graph construction mode: {knn, mutual_knn}')
-    parser.add_argument('--densify_topm', type=int, default=0,
-                    help='Number of new 2-hop neighbors added per node')
+                    help='i2i graph construction mode: {knn, mutual_knn, mutual_knn_2hop}')
+    parser.add_argument('--densify_topm', type=int, default=2,
+                        help='Number of 2-hop neighbors added per node')
+    parser.add_argument('--use_2hop', type=int, default=0,
+                        help='Whether to enable 2-hop densification: 0/1')
     #parser.add_argument('--densify_threshold', type=float, default=0.0,
     #                    help='Minimum similarity threshold for densification')
     #parser.add_argument('--degree_cap', type=int, default=0,
