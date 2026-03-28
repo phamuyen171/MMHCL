@@ -69,4 +69,6 @@ def parse_args():
     parser.add_argument("--alpha", type=float, default=1.0, help="alpha")
     parser.add_argument("--beta", type=float, default=0.1, help="beta")
 
+    parser.add_argument('--soft_margin', type=float, default=0.2, help='Soft margin for soft BPR loss')
+
     return parser.parse_args()

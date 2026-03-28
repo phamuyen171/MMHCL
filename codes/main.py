@@ -254,7 +254,7 @@ class Trainer(object):
         regularizer = 1. / 2 * (users ** 2).sum() + 1. / 2 * (pos_items ** 2).sum() + 1. / 2 * (neg_items ** 2).sum()
         regularizer = regularizer / self.batch_size
 
-        maxi = F.logsigmoid(pos_scores - neg_scores)
+        maxi = F.logsigmoid((1 - args.soft_margin) * (pos_scores - neg_scores))
         mf_loss = -torch.mean(maxi)
 
         emb_loss = self.decay * regularizer
