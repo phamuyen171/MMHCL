@@ -237,14 +237,23 @@ if __name__ == '__main__':
     config['n_items'] = data_generator.n_items
 
     UI_mat = data_generator.get_UI_mat()
-    User_mat = data_generator.get_U2U_mat()
-
 
     """multimodal"""
     if args.dataset =="Tiktok":
-        Item_mat=data_generator.get_tiktok_I2I_Hypergraph_mul_mat()#Three modalities for tiktok.
-    elif args.dataset in ["Clothing","Sports"]:
-        Item_mat = data_generator.get_I2I_Hypergraph_mul_mat()#Two modalities, for Clothing and Sports.
+        Item_mat = data_generator.get_tiktok_I2I_Hypergraph_mul_mat()  # Three modalities for tiktok.
+    elif args.dataset in ["Clothing", "Sports"]:
+        Item_mat = data_generator.get_I2I_Hypergraph_mul_mat()  # Two modalities, for Clothing and Sports.
+    else:
+        raise ValueError(f"Unsupported dataset: {args.dataset}")
+
+    if args.u2u_semantic_dense == 1:
+        User_mat = data_generator.get_U2U_mat_semantic(
+            Item_mat=Item_mat,
+            norm_type=args.u2u_dense_norm
+        )
+    else:
+        User_mat = data_generator.get_U2U_mat()
+
     config['UI_mat'] = UI_mat
     config['User_mat'] = User_mat
     config['Item_mat'] = Item_mat

@@ -91,6 +91,24 @@ class Data(object):
             except:
                 continue
 
+        self.R = self.R.tocsr()
+        self.R_tfidf = self.build_tfidf_R()
+
+
+    def build_tfidf_R(self):
+        R = self.R.tocsr()
+        df = np.array(R.sum(axis=0)).reshape(-1)
+        n_users = R.shape[0]
+
+        idf = np.log(n_users / (df + 1))
+
+        coo = R.tocoo()
+        rows, cols = coo.row, coo.col
+        data = idf[cols]
+
+        R_tfidf = sp.coo_matrix((data, (rows, cols)), shape=R.shape)
+        return R_tfidf.tocsr()
+
     def sparse_mx_to_torch_sparse_tensor(self, sparse_mx):
         """Convert a scipy sparse matrix to a torch sparse tensor."""
         sparse_mx = sparse_mx.tocoo().astype(np.float32)
@@ -242,6 +260,25 @@ class Data(object):
             L_norm = adj
         return L_norm
 
+
+    def remove_diag(self, mat):
+        n = mat.size(0)
+        mat = mat.clone()
+        idx = torch.arange(n)
+        mat[idx, idx] = 0.
+        return mat
+
+    def sparsify_dense_u2u(self, adj, topk, norm_type='rw'):
+        # adj: dense [n_users, n_users]
+        # keep top-k neighbors for each user, then normalize and return sparse tensor
+        n_users = adj.size(0)
+        topk = min(topk, n_users)
+        adj = self.remove_diag(adj)
+        knn_val, knn_ind = torch.topk(adj, topk, dim=-1)
+        weighted_adj = (torch.zeros_like(adj)).scatter_(-1, knn_ind, knn_val)
+        weighted_adj = self.norm_dense(weighted_adj, norm_type)
+        return weighted_adj.to_sparse().coalesce()
+
     def get_UI_mat(self, norm_type='sym'):
         #   UI_mat default use sym normalization,and No-self-connection
         print("Loading UI_mat:(" + norm_type + ")")
@@ -284,7 +321,8 @@ class Data(object):
         try:
             User_mat = torch.load(self.path + '/User_mat_' + norm_type + ".pth")
         except Exception:
-            R = torch.from_numpy(self.R.todense()).float()
+            R = torch.from_numpy(self.R_tfidf.todense()).float()
+            #R = torch.from_numpy(self.R.todense()).float()
             User_mat = R @ R.T
             n_user = User_mat.size()[0]
             mask = torch.eye(n_user)

@@ -9,9 +9,9 @@ def parse_args():
                         help='Random seed')
     parser.add_argument('--dataset', nargs='?', default='Tiktok',
                         help='Choose a dataset from {Tiktok,Sports,Clothing}')
-    parser.add_argument('--verbose', type=int, default=5,#5
+    parser.add_argument('--verbose', type=int, default=5,
                         help='Interval of evaluation.')
-    parser.add_argument('--epoch', type=int, default=1000,#1000,
+    parser.add_argument('--epoch', type=int, default=1000,
                         help='Number of epoch.')
     parser.add_argument('--batch_size', type=int, default=1024,
                         help='Batch size.')
@@ -46,13 +46,12 @@ def parse_args():
     parser.add_argument('--test_flag', nargs='?', default='part',
                         help='Specify the test type from {part, full}, indicating whether the reference is done in mini-batch')
 
-
     parser.add_argument('--UI_layers', type=int, default=2,
                         help='UI GNN layers')
     parser.add_argument('--User_layers', type=int, default=3,
-                        help='UI GNN layers')
+                        help='User hypergraph layers')
     parser.add_argument('--Item_layers', type=int, default=2,
-                        help='UI GNN layers')
+                        help='Item hypergraph layers')
     parser.add_argument('--user_loss_ratio', type=float, default=0.03,
                         help='Control the effect of the contrastive auxiliary task')
     parser.add_argument('--item_loss_ratio', type=float, default=0.07,
@@ -60,7 +59,19 @@ def parse_args():
     parser.add_argument('--temperature', type=float, default=0.6,
                         help='InfoNCE temperature')
 
-    parser.add_argument('--ablation_target', type=str, default="",
-                        help='UI GNN layers')
+    parser.add_argument('--ablation_target', nargs='?', default='full',
+                        help='Ablation experiment tag')
+
+    # ===== Added for semantic u2u densification =====
+    parser.add_argument('--u2u_semantic_dense', type=int, default=1,
+                        help='1: use semantic densified u2u, 0: use original RRT only')
+    parser.add_argument('--u2u_mix_alpha', type=float, default=0.5,
+                        help='mixing weight for semantic densification: U=(1-a)U_orig+aU_dense')
+    parser.add_argument('--u2u_topk', type=int, default=0,
+                        help='top-k sparsification for mixed u2u; 0 means use args.topk')
+    parser.add_argument('--u2u_dense_norm', nargs='?', default='rw',
+                        help='normalization for final mixed u2u matrix')
+    parser.add_argument('--u2u_cache_tag', nargs='?', default='semantic_mix',
+                        help='cache tag for semantic densified u2u matrix')
 
     return parser.parse_args()
