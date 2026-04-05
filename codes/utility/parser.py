@@ -71,4 +71,10 @@ def parse_args():
 
     parser.add_argument('--soft_margin', type=float, default=0.2, help='Soft margin for soft BPR loss')
 
+    parser.add_argument('--loss_type', type=str, default='bpr', help='Type of BPR loss to use: bpr, soft_bpr, hard_bpr')
+
+    parser.add_argument('--hard_bpr_a', type=float, default=1.0, help='Alpha for hard BPR loss')
+    parser.add_argument('--hard_bpr_b', type=float, default=-1.0, help='Beta for hard BPR loss')
+    parser.add_argument('--hard_bpr_c', type=float, default=1.0, help='Gamma for hard BPR loss')
+
     return parser.parse_args()

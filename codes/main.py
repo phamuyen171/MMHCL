@@ -254,8 +254,20 @@ class Trainer(object):
         regularizer = 1. / 2 * (users ** 2).sum() + 1. / 2 * (pos_items ** 2).sum() + 1. / 2 * (neg_items ** 2).sum()
         regularizer = regularizer / self.batch_size
 
-        maxi = F.logsigmoid((1 - args.soft_margin) * (pos_scores - neg_scores))
-        mf_loss = -torch.mean(maxi)
+        if args.loss_type == 'bpr':
+            maxi = F.logsigmoid(pos_scores - neg_scores)
+            mf_loss = -torch.mean(maxi)
+        elif args.loss_type == 'soft_bpr':
+            maxi = F.logsigmoid((1 - args.soft_margin) * (pos_scores - neg_scores))
+            mf_loss = -torch.mean(maxi)
+        elif args.loss_type == 'hard_bpr':
+            a = args.hard_bpr_a
+            b = args.hard_bpr_b
+            c = args.hard_bpr_c
+
+            g = (torch.sigmoid(c * (pos_scores - neg_scores) + b) + a) / (1.0 + a)
+            g = torch.clamp(g, min=1e-12, max=1.0)
+            mf_loss = -torch.mean(torch.log(g))
 
         emb_loss = self.decay * regularizer
         reg_loss = 0.0
