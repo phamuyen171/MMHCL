@@ -3,6 +3,7 @@ import random as rd
 import scipy.sparse as sp
 from time import time
 import json
+from codes.utility.norm import build_knn_normalized_graph
 from utility.parser import parse_args
 
 args = parse_args()
@@ -260,6 +261,24 @@ class Data(object):
             L_norm = adj
         return L_norm
 
+    def sparsify_dense_u2u(self, adj, topk, norm_type='rw'):
+        """
+        adj: dense [n_users, n_users]
+        keep top-k neighbors for each user, then normalize and return sparse tensor
+        """
+        n_users = adj.size(0)
+        topk = min(topk, n_users)
+
+        adj = self.remove_diag(adj)
+
+        sparse_adj = build_knn_normalized_graph(
+            adj=adj,
+            topk=topk,
+            is_sparse=True,
+            norm_type=norm_type
+        )
+        return sparse_adj.coalesce()
+
 
     def remove_diag(self, mat):
         n = mat.size(0)
@@ -332,6 +351,66 @@ class Data(object):
             torch.save(User_mat, self.path + '/User_mat_' + norm_type + ".pth")
         print("End Load User_mat:[%.1fs](" % (time() - t) + norm_type + ")")
         return User_mat
+
+    def get_U2U_mat_semantic(self, Item_mat, norm_type='rw'):
+       
+            alpha = args.u2u_mix_alpha
+            topk = args.u2u_topk if args.u2u_topk > 0 else args.topk
+
+            cache_name = (
+                f'/User_mat_{args.u2u_cache_tag}_{norm_type}'
+                f'_alpha_{alpha}_topk_{topk}.pth'
+            )
+
+            print(f"Loading User_mat semantic mix:({norm_type}) alpha={alpha} topk={topk}")
+            t = time()
+
+            try:
+                User_mat = torch.load(self.path + cache_name)
+            except Exception:
+                # R: [n_users, n_items]
+                R = torch.from_numpy(self.R.todense()).float()
+
+                # S: [n_items, n_items]
+                if Item_mat.is_sparse:
+                    S = Item_mat.to_dense().float()
+                else:
+                    S = Item_mat.float()
+
+                # Original user-user graph
+                U_orig = torch.mm(R, R.t())
+
+                # Semantic-densified user-user graph
+                U_dense = torch.mm(torch.mm(R, S), R.t())
+
+                # Remove self-loops
+                U_orig = self.remove_diag(U_orig)
+                U_dense = self.remove_diag(U_dense)
+
+                # Scale the two terms to comparable ranges
+                orig_max = U_orig.max()
+                dense_max = U_dense.max()
+
+                if orig_max > 0:
+                    U_orig = U_orig / orig_max
+                if dense_max > 0:
+                    U_dense = U_dense / dense_max
+
+                # Mix
+                U_mix = (1.0 - alpha) * U_orig + alpha * U_dense
+                U_mix = self.remove_diag(U_mix)
+
+                # Top-k sparsify + normalize
+                User_mat = self.sparsify_dense_u2u(
+                    adj=U_mix,
+                    topk=topk,
+                    norm_type=norm_type
+                )
+
+                torch.save(User_mat, self.path + cache_name)
+
+            print("End Load User_mat semantic mix:[%.1fs](%s)" % (time() - t, norm_type))
+            return User_mat
 
     def get_I2I_single_mat(self, norm_type="sym"):
         # I2I_mat default use sym normalization,and must have self-connection because of similarity
