@@ -1,0 +1,21 @@
+# Ignore compiled python files
+__pycache__/
+*.pyc
+
+# # Ignore logs and checkpoints
+# *.log
+*.zip
+*.pkl
+*.npy
+
+# # Ignore data folders
+data/
+# log/
+output/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+*.out
+*.sh

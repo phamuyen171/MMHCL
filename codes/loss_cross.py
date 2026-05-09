@@ -11,7 +11,7 @@ from torch_scatter import scatter_add
 
 
 class CLALoss(nn.Module):
-    def __init__(self, K: int, D: int, gamma: float) -> None:
+    def __init__(self, K=32, D=64, gamma=0.1) -> None:
         """
         Args:
             K (int): Number of prototypes for each modality

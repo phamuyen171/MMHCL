@@ -68,13 +68,15 @@ class Trainer(object):
         self.lr_scheduler = self.set_lr_scheduler()
 
         # FETTLE
-        self.cla_weight  = args.alpha # Trọng số cho CLA
-        self.iladt_weight = args.beta  # Trọng số cho DT
-        self.cna_weight = args.gamma
+        self.cla_weight  = args.alpha 
+        self.iladt_weight = args.beta 
+        self.ila_tem = args.gamma_ila
+        self.cna_tem = args.gamma_cna
 
-        self.ila_dt_loss = ILALoss(leaky_bi=True) # set leaky_bi=True --> ILDA
-        self.cla_loss = CLALoss(...)
-        self.cna_loss = CNALoss(...)
+
+        self.ila_dt_loss = ILALoss(gamma=self.ila_tem, leaky_bi=True) # set leaky_bi=True --> ILDA
+        self.cla_loss = CLALoss(D=self.emb_dim, gamma_cla=self.cla_tem)
+        self.cna_loss = CNALoss(dataset=f"{args.dataset}")
 
     def set_lr_scheduler(self):
         fac = lambda epoch: 0.96 ** (epoch / 50)

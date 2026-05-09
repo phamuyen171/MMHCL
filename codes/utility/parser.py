@@ -64,10 +64,11 @@ def parse_args():
                         help='UI GNN layers')
     
     parser.add_argument('--alpha', type=float, default=1e-3,
-                        help='Trọng số cho CLA')
+                        help='Hyperparameter for CLA in loss function')
     parser.add_argument('--beta', type=float, default=1e-3,
-                        help='Trọng số cho DT')
-    parser.add_argument('--gamma', type=float, default=1e-3,
-                        help='Trọng số cho CNA')
-
+                        help='Hyperparameter for ILA/DT in loss function')
+    parser.add_argument('--gamma_ila', type=float, default=0.2,
+                        help='Trọng số cho ILA')
+    parser.add_argument('--gamma_cla', type=float, default=0.1,
+                        help='Trọng số cho CLA')
     return parser.parse_args()
