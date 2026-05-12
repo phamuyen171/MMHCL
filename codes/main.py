@@ -71,11 +71,11 @@ class Trainer(object):
         self.cla_weight  = args.alpha 
         self.iladt_weight = args.beta 
         self.ila_tem = args.gamma_ila
-        self.cna_tem = args.gamma_cna
+        self.cla_tem = args.gamma_cla
 
 
         self.ila_dt_loss = ILALoss(gamma=self.ila_tem, leaky_bi=True) # set leaky_bi=True --> ILDA
-        self.cla_loss = CLALoss(D=self.emb_dim, gamma_cla=self.cla_tem)
+        self.cla_loss = CLALoss(D=self.emb_dim, gamma=self.cla_tem)
         self.cna_loss = CNALoss(dataset=f"{args.dataset}")
 
     def set_lr_scheduler(self):
