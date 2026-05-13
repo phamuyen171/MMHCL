@@ -76,7 +76,9 @@ class Trainer(object):
 
         self.ila_dt_loss = ILALoss(gamma=self.ila_tem, leaky_bi=True) # set leaky_bi=True --> ILDA
         self.cla_loss = CLALoss(D=self.emb_dim, gamma=self.cla_tem)
-        self.cna_loss = CNALoss(dataset=f"{args.dataset}")
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.cna_loss = CNALoss(device=device, dataset=f"{args.dataset}")
 
     def set_lr_scheduler(self):
         fac = lambda epoch: 0.96 ** (epoch / 50)
