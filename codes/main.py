@@ -25,7 +25,7 @@ import pathlib
 
 args = parse_args()
 
-from loss_cross import CLALoss, ILALoss, CNALoss
+from loss import CLALoss, ILADTLoss
 
 # print(torch.cuda.current_device())
 
@@ -70,15 +70,12 @@ class Trainer(object):
         # FETTLE
         self.cla_weight  = args.alpha 
         self.iladt_weight = args.beta 
-        self.ila_tem = args.gamma_ila
-        self.cla_tem = args.gamma_cla
+        self.gamma_clcr = args.gamma_clcr
+        self.cla_ga = args.gamma_ga
 
+        self.iladt_loss = ILADTLoss(gamma=self.clcr_gamma, dim=self.latent_dim)
+        self.cla_loss = CLALoss(D=self.emb_dim, gamma=self.ga_gamma)
 
-        self.ila_dt_loss = ILALoss(gamma=self.ila_tem, leaky_bi=True) # set leaky_bi=True --> ILDA
-        self.cla_loss = CLALoss(D=self.emb_dim, gamma=self.cla_tem)
-
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.cna_loss = CNALoss(device=device, dataset=f"{args.dataset}")
 
     def set_lr_scheduler(self):
         fac = lambda epoch: 0.96 ** (epoch / 50)
@@ -140,15 +137,12 @@ class Trainer(object):
                 v_emb = self.model.v_feat
                 t_emb = self.model.t_feat
 
-                ila_dt_loss = self.ila_dt_loss(ua_embeddings, ia_embeddings, v_emb, t_emb, users, pos_items)  
+                iladt_loss = self.iladt_loss(ua_embeddings, ia_embeddings, v_emb, t_emb, users, pos_items)  
             
                 cla_loss = self.cla_loss(ua_embeddings, ia_embeddings, v_emb, t_emb, users, pos_items)  
                 
-                cna_cl_loss, cna_reg_loss = self.cna_loss( ia_embeddings, v_emb, t_emb, pos_items) 
-                cna_loss = cna_cl_loss + cna_reg_loss       
                 
-                fettle_loss =  self.iladt_weight * ila_dt_loss + self.cla_weight * cla_loss + self.cna_weight * cna_loss
-
+                fettle_loss =  self.iladt_weight * iladt_loss + self.cla_weight * cla_loss
                 
                 batch_loss = batch_mf_loss + batch_emb_loss + batch_reg_loss + batch_contrastive_loss + fettle_loss
 

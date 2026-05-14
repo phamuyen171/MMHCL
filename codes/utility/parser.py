@@ -67,8 +67,8 @@ def parse_args():
                         help='Hyperparameter for CLA in loss function')
     parser.add_argument('--beta', type=float, default=1e-3,
                         help='Hyperparameter for ILA/DT in loss function')
-    parser.add_argument('--gamma_ila', type=float, default=0.2,
+    parser.add_argument('--gamma_clcr', type=float, default=0.2,
                         help='Trọng số cho ILA')
-    parser.add_argument('--gamma_cla', type=float, default=0.1,
+    parser.add_argument('--gamma_ga', type=float, default=0.1,
                         help='Trọng số cho CLA')
     return parser.parse_args()

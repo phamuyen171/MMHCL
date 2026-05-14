@@ -1,14 +1,9 @@
-# coding: utf-8
-import os
-from typing import Any, Optional, Tuple
-
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from kmeans_pytorch import kmeans as KMeans
 from torch_scatter import scatter_add
-
 
 class CLALoss(nn.Module):
     def __init__(self, K=32, D=64, gamma=0.1) -> None:
@@ -134,8 +129,6 @@ class CLALoss(nn.Module):
                 q_text_ii = text_code.detach()
 
 
-
-
         gamma = self.gamma
         if mode=='SwAV':
             loss = 0
@@ -163,24 +156,15 @@ class CLALoss(nn.Module):
 
         return loss / 2 + align_loss / 6
 
+
 def normalize(embeddings):
     mean = embeddings.mean(dim=0)
     std = embeddings.std(dim=0)
     return (embeddings - mean) / (std+1e-6)
 
-def InfoNCE(view1, view2, temperature):
-        view1, view2 = F.normalize(view1, dim=1), F.normalize(view2, dim=1)
-        pos_score = (view1 * view2).sum(dim=-1)
-        pos_score = torch.exp(pos_score / temperature)
-        ttl_score = torch.matmul(view1, view2.transpose(0, 1))
-        ttl_score = torch.exp(ttl_score / temperature).sum(dim=1)
-        cl_loss = -torch.log(pos_score / ttl_score)
-        
-        return torch.mean(cl_loss)
-
-class ILALoss(nn.Module):
-    def __init__(self, dim=64, gamma=0.007,leaky_bi=False):
-        super(ILALoss, self).__init__()
+class ILADTLoss(nn.Module):
+    def __init__(self, dim=64, gamma=0.007):
+        super(ILADTLoss, self).__init__()
         # self.logit_scale =  nn.Parameter(torch.ones([]) * np.log(1 / gamma))
         self.temp = nn.Parameter(gamma * torch.ones([]))
         self.i2t_map = nn.Linear(dim, dim, bias=False)
@@ -189,7 +173,6 @@ class ILALoss(nn.Module):
         self.d2i_map = nn.Linear(dim, dim, bias=False)
         self.t2d_map = nn.Linear(dim, dim, bias=False)
         self.d2t_map = nn.Linear(dim, dim, bias=False)
-        self.leaky_bi = leaky_bi
 
     def forward(self,user_embeddings,item_embeddings,image_embeddings,text_embeddings,user_id,item_id,epoch_idx=None):
         with torch.no_grad():
@@ -218,20 +201,12 @@ class ILALoss(nn.Module):
             uit_scores = scatter_add(uit_scores / counts[remap_indexs], remap_indexs, dim=0)
 
 
-            if self.leaky_bi:
-                t_i_mask = uii_scores + torch.var(uii_scores)* (torch.exp(1-uii_scores)-1) > uit_scores
-                i_t_mask = uit_scores +  torch.var(uit_scores)* (torch.exp(1-uit_scores)-1)> uii_scores
-                i_d_mask = uid_scores +  torch.var(uid_scores)* (torch.exp(1-uid_scores)-1)> uii_scores
-                d_i_mask = uii_scores +  torch.var(uii_scores)* (torch.exp(1-uii_scores)-1)> uid_scores
-                t_d_mask = uid_scores +  torch.var(uid_scores)* (torch.exp(1-uid_scores)-1)> uit_scores
-                d_t_mask = uit_scores +  torch.var(uit_scores)* (torch.exp(1-uit_scores)-1)> uid_scores
-            else:
-                t_i_mask = uii_scores > uit_scores
-                i_t_mask = uit_scores > uii_scores
-                i_d_mask = uid_scores > uii_scores
-                d_i_mask = uii_scores > uid_scores
-                t_d_mask = uid_scores > uit_scores
-                d_t_mask = uit_scores > uid_scores
+            t_i_mask = uii_scores > uit_scores
+            i_t_mask = uit_scores > uii_scores
+            i_d_mask = uid_scores > uii_scores
+            d_i_mask = uii_scores > uid_scores
+            t_d_mask = uid_scores > uit_scores
+            d_t_mask = uit_scores > uid_scores
 
         item_embeddings = item_embeddings[unique_items] # 7k -> unique items
         image_embeddings = image_embeddings[unique_items]
@@ -320,64 +295,3 @@ class ILALoss(nn.Module):
         loss_align = loss_align / 6
 
         return loss +  loss_align
-
-class CNALoss(nn.Module):
-    def __init__(self,device,dim=64,cl_temp=0.2,topk=5,reduction='mean', dataset='baby',verbose=False):
-        super(CNALoss, self).__init__()
-        self.item_best_friends = torch.load(f'../data/{dataset}/{dataset}_item_top_{topk}.pt').to(device)
-        self.dataset = dataset
-        self.reduction = reduction
-        if reduction == 'mean':
-            self.weight = nn.Parameter(torch.ones(topk),requires_grad=False)
-        elif reduction == 'param_attn':
-            self.weight =  nn.Parameter(torch.ones(topk),requires_grad=True)
-        else:
-            raise ValueError('reduction should be mean or param_attn')
-            
-        self.topk = topk
-        self.cl_temp = cl_temp
-    
-    def sq_sum(self, emb):
-        return 1. / 2 * (emb ** 2).sum()
-    
-    def InfoNCE(self, view1, view2, temperature):
-        view1, view2 = F.normalize(view1, dim=1), F.normalize(view2, dim=1)
-        pos_score = (view1 * view2).sum(dim=-1)
-        pos_score = torch.exp(pos_score / temperature)
-        ttl_score = torch.matmul(view1, view2.transpose(0, 1))
-        ttl_score = torch.exp(ttl_score / temperature).sum(dim=1)
-        cl_loss = -torch.log(pos_score / ttl_score)
-        return torch.mean(cl_loss)
-    
-    def forward(self,item_embeddings,item_image_embeddings,item_text_embeddings,item_id,epoch_idx=None):
-        item_id,indice = torch.sort(item_id)
-        unique_items, remap_indices, counts = torch.unique(item_id, return_inverse=True, return_counts=True, sorted=True)
-
-        # 标准化嵌入向量 shape: [batch_size, dim]
-        item_embeddings = item_embeddings / item_embeddings.norm(dim=1, keepdim=True)
-        item_image_embeddings = item_image_embeddings / item_image_embeddings.norm(dim=1, keepdim=True)
-        item_text_embeddings = item_text_embeddings / item_text_embeddings.norm(dim=1, keepdim=True)
-        
-        # 朋友嵌入向量 shape: [batch_size, topk, dim]
-        item_friends_embeddings = item_embeddings[self.item_best_friends[unique_items]]
-        item_friends_image_embeddings = item_image_embeddings[self.item_best_friends[unique_items]]
-        item_friends_text_embeddings = item_text_embeddings[self.item_best_friends[unique_items]]
-
-        # id_weight shape: [batch_size, topk,1]
-
-        weight = F.softmax(self.weight,dim=0).view(-1,self.topk,1)
-        item_friends_embeddings = torch.sum(weight * item_friends_embeddings,dim=1)
-        item_friends_image_embeddings = torch.sum(weight * item_friends_image_embeddings,dim=1)
-        item_friends_text_embeddings = torch.sum(weight * item_friends_text_embeddings,dim=1)
-        
-        cl_loss = sum(
-            self.InfoNCE(embeddings, friend_embeddings, self.cl_temp)
-            for embeddings, friend_embeddings in [
-                (item_embeddings[unique_items], item_friends_embeddings),
-                (item_image_embeddings[unique_items], item_friends_image_embeddings),
-                (item_text_embeddings[unique_items], item_friends_text_embeddings),
-            ]
-        ) / 3
-
-        reg_loss = self.sq_sum(item_friends_embeddings) + self.sq_sum(item_friends_image_embeddings) + self.sq_sum(item_friends_text_embeddings)
-        return cl_loss, reg_loss
