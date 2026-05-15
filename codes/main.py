@@ -71,10 +71,10 @@ class Trainer(object):
         self.cla_weight  = args.alpha 
         self.iladt_weight = args.beta 
         self.gamma_clcr = args.gamma_clcr
-        self.cla_ga = args.gamma_ga
+        self.gamma_ga = args.gamma_ga
 
-        self.iladt_loss = ILADTLoss(gamma=self.clcr_gamma, dim=self.latent_dim)
-        self.cla_loss = CLALoss(D=self.emb_dim, gamma=self.ga_gamma)
+        self.iladt_loss = ILADTLoss(gamma=self.gamma_clcr, dim=self.latent_dim)
+        self.cla_loss = CLALoss(D=self.emb_dim, gamma=self.gamma_ga)
 
 
     def set_lr_scheduler(self):
