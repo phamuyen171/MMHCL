@@ -73,7 +73,7 @@ class Trainer(object):
         self.gamma_clcr = args.gamma_clcr
         self.gamma_ga = args.gamma_ga
 
-        self.iladt_loss = ILADTLoss(gamma=self.gamma_clcr, dim=self.latent_dim)
+        self.iladt_loss = ILADTLoss(gamma=self.gamma_clcr, dim=self.emb_dim)
         self.cla_loss = CLALoss(D=self.emb_dim, gamma=self.gamma_ga)
 
 
