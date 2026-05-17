@@ -60,6 +60,8 @@ class Trainer(object):
         self.UI_mat = data_config['UI_mat'].cuda()
         self.User_mat = data_config['User_mat'].cuda()
         self.Item_mat = data_config['Item_mat'].cuda()
+        self.Image_item_mat = data_config['Image_item_mat'].cuda()
+        self.Text_item_mat = data_config['Text_item_mat'].cuda()
 
         self.model = MMHCL(self.n_users, self.n_items, self.emb_dim)
 
@@ -134,8 +136,8 @@ class Trainer(object):
 
 
                 # FETTLE
-                v_emb = self.model.v_feat
-                t_emb = self.model.t_feat
+                v_emb = self.Image_item_mat
+                t_emb = self.Text_item_mat
 
                 iladt_loss = self.iladt_loss(ua_embeddings, ia_embeddings, v_emb, t_emb, users, pos_items)  
             
@@ -271,11 +273,13 @@ if __name__ == '__main__':
     config['Item_mat'] = Item_mat
 
     """single modality for ablation experiment"""
-    # Image_item_mat, Text_item_mat,Audio_item_mat = data_generator.get_I2I_single_mat()
+    Image_item_mat, Text_item_mat,Audio_item_mat = data_generator.get_I2I_single_mat()
     # config['UI_mat'] = UI_mat
     # config['User_mat'] = User_mat
     # config['Item_mat'] = Text_item_mat
     # config['Item_mat']=Audio_item_mat
+    config['Image_item_mat'] = Image_item_mat
+    config['Text_item_mat'] = Text_item_mat
 
 
     trainer = Trainer(data_config=config)
