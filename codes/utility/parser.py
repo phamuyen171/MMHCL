@@ -62,5 +62,18 @@ def parse_args():
 
     parser.add_argument('--ablation_target', type=str, default="",
                         help='UI GNN layers')
+    
+    # ── SGFD arguments ────────────────────────────────────────────────────
+    parser.add_argument('--sgfd_t', type=int, default=100,
+                        help='Temperature for SGFD knowledge distillation softmax')
+    parser.add_argument('--ce_weight', type=float, default=0.1,
+                        help='Weight for SGFD classification + fusion losses')
+    parser.add_argument('--kd_weight', type=float, default=0.1,
+                        help='Weight for SGFD KD + feature-constraint losses')
+    parser.add_argument('--sgfd_weight', type=float, default=1.0,
+                        help='Overall scale factor for the SGFD mfd_loss term')
+    parser.add_argument('--dropout', type=float, default=0.3,
+                        help='Dropout rate used by SGFD target-embedding augmentation')
+
 
     return parser.parse_args()
