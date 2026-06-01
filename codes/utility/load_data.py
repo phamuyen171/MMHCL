@@ -9,6 +9,8 @@ args = parse_args()
 
 import torch
 
+import os
+device = torch.device('cpu')  # kept on CPU; moved to GPU in Trainer
 
 
 class Data(object):
@@ -59,6 +61,11 @@ class Data(object):
         self.n_users += 1
 
         self.print_statistics()
+
+        self.v_feat = None   # raw image features (n_items × D_v)
+        self.t_feat = None   # raw text  features (n_items × D_t)
+        self.meta_feat = None  # item category labels (n_items,)
+        self._load_raw_features()
 
         self.R = sp.dok_matrix((self.n_users, self.n_items), dtype=np.float32)
         self.R_Item_Interacts = sp.dok_matrix((self.n_items, self.n_items), dtype=np.float32)
@@ -276,6 +283,42 @@ class Data(object):
             torch.save(UI_mat, self.path + '/UI_single_mat_' + norm_type + ".pth")
         print("End Load UI_single_mat:[%.1fs](" % (time() - t) + norm_type + ")")
         return UI_mat
+
+    def _load_raw_features(self):
+        """Load image / text features and item-category meta labels for SGFD.
+
+        The meta-label file is expected at:
+            ../data/<dataset>/item_category.npy   (int array, shape [n_items])
+        If it does not exist, we fall back to a zero-filled tensor so the model
+        can still run (SGFD losses will be trivially zero in that case).
+        """
+
+        # ── raw visual features ──────────────────────────────────────────────
+        v_path_npy = '../data/{}/image_feat.npy'.format(args.dataset)
+        v_path_pt  = '../data/{}/img_feat.pt'.format(args.dataset)
+        if os.path.isfile(v_path_pt):
+            self.v_feat = torch.load(v_path_pt).float()
+        elif os.path.isfile(v_path_npy):
+            self.v_feat = torch.tensor(np.load(v_path_npy)).float()
+
+        # ── raw text features ────────────────────────────────────────────────
+        t_path_npy = '../data/{}/text_feat.npy'.format(args.dataset)
+        t_path_pt  = '../data/{}/text_feat.pt'.format(args.dataset)
+        if os.path.isfile(t_path_pt):
+            self.t_feat = torch.load(t_path_pt).float()
+        elif os.path.isfile(t_path_npy):
+            self.t_feat = torch.tensor(np.load(t_path_npy)).float()
+
+        # ── item category meta-labels ────────────────────────────────────────
+        m_path = '../data/{}/item_category.npy'.format(args.dataset)
+        if os.path.isfile(m_path):
+            self.meta_feat = torch.tensor(
+                np.load(m_path, allow_pickle=True)).long()
+        else:
+            # Fallback: all items assigned to category 0 (single class).
+            # SGFD classification loss will be non-informative but harmless.
+            print("[SGFD] WARNING: item_category.npy not found – using dummy labels.")
+            self.meta_feat = torch.zeros(self.n_items, dtype=torch.long)
 
     def get_U2U_mat(self, norm_type='rw'):
         # U2U_mat default use row normalization,and No-self-connection

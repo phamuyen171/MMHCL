@@ -193,26 +193,29 @@ class LightGCN(nn.Module):
 
 
 class MMHCL(nn.Module):
-    """
-    MMHCL with SGFD feature distillation integrated.
+    """Multi-Modal Hypergraph Contrastive Learning (MMHCL) with SGFD integration.
 
-    SGFD adds per-modality Teacher-Student feature extractors and a
-    cross-modal fusion classifier.  The resulting distillation loss
-    (mfd_loss) is combined with MMHCL's original BPR + contrastive loss,
-    mirroring the same integration pattern used in BM3+SGFD.
+    SGFD (Semantic-Guided Feature Distillation) is integrated analogously to the
+    BM3 baseline:
 
-    New constructor arguments (passed via args):
-        --v_feat_dim   : visual feature raw dimension  (e.g. 4096)
-        --t_feat_dim   : textual feature raw dimension (e.g. 384)
-        --sgfd_t       : temperature for knowledge distillation (default 100)
-        --ce_weight    : weight for classification losses   (default 0.1)
-        --kd_weight    : weight for distillation losses     (default 0.1)
-        --sgfd_weight  : overall scale of mfd_loss          (default 1.0)
-        --dropout      : dropout rate for target embeddings (default 0.3)
+      - For each modality (visual / text), a ``FeatureExtractorModel`` runs a
+        teacher–student distillation pipeline that produces:
+          * a refined item feature vector  (``teacher_x``, i.e. ``student_feat``);
+          * three auxiliary losses: CE classification, KD (soft-label), MSE
+            feature-constraint.
+      - A ``FeatureFusionModel`` fuses the two modality features and applies a
+        further classification loss.
+      - The combined SGFD loss is added to the original BPR + contrastive loss.
+
+    New hyper-parameters (added to parser):
+        --ce_weight   weight on (class_loss + fusion_loss)
+        --kd_weight   weight on (kd_loss + feature_loss)
+        --t_decay     softmax temperature for KD
+        --sgfd_dropout  (reserved, currently unused inside SGFD modules)
     """
 
     def __init__(self, n_users, n_items, embedding_dim,
-                 v_feat=None, t_feat=None, meta_label=None):
+                 v_feat=None, t_feat=None, meta_feat=None):
         super(MMHCL, self).__init__()
         self.n_users = n_users
         self.n_items = n_items
@@ -243,31 +246,39 @@ class MMHCL(nn.Module):
         # ── SGFD modules ─────────────────────────────────────────────────
         self.v_feat = v_feat          # [n_items, v_feat_dim] tensor or None
         self.t_feat = t_feat          # [n_items, t_feat_dim] tensor or None
-        self.meta_label = meta_label  # [n_items] LongTensor of category ids
+        self.meta_feat = meta_feat  # (n_items,) – category integer labels
 
-        self.sgfd_t       = getattr(args, 'sgfd_t',      100)
-        self.ce_weight    = getattr(args, 'ce_weight',   0.1)
-        self.kd_weight    = getattr(args, 'kd_weight',   0.1)
-        self.sgfd_weight  = getattr(args, 'sgfd_weight', 1.0)
-        self.dropout_rate = getattr(args, 'dropout',     0.3)
+        self.sgfd_enabled = (
+            meta_feat is not None and
+            (v_feat is not None or t_feat is not None)
+        )
 
-        self.v_feature_extractor = None
-        self.t_feature_extractor = None
-        self.feature_fusion_model = None
+        if self.sgfd_enabled:
+            t_decay = args.t_decay
 
-        if self.v_feat is not None and meta_label is not None:
-            self.v_feature_extractor = FeatureExtractorModel(
-                self.v_feat, self.v_feat.shape[1],
-                meta_label, dim_latent=embedding_dim, t=self.sgfd_t
+            if self.v_feat is not None:
+                self.v_feature_extractor = FeatureExtractorModel(
+                    self.v_feat,
+                    self.v_feat.shape[1],
+                    self.meta_feat,
+                    dim_latent=self.embeddings_dim,
+                    t=t_decay,
+                )
+
+            if self.t_feat is not None:
+                self.t_feature_extractor = FeatureExtractorModel(
+                    self.t_feat,
+                    self.t_feat.shape[1],
+                    self.meta_feat,
+                    dim_latent=self.embeddings_dim,
+                    t=t_decay,
+                )
+
+            # FeatureFusionModel expects concatenated [t_feat; v_feat] (2*dim)
+            self.feature_fusion_model = FeatureFusionModel(
+                self.meta_feat,
+                self.embeddings_dim,
             )
-        if self.t_feat is not None and meta_label is not None:
-            self.t_feature_extractor = FeatureExtractorModel(
-                self.t_feat, self.t_feat.shape[1],
-                meta_label, dim_latent=embedding_dim, t=self.sgfd_t
-            )
-        if (self.v_feat is not None or self.t_feat is not None) and meta_label is not None:
-            self.feature_fusion_model = FeatureFusionModel(meta_label, embedding_dim)
-
     # ─────────────────────────────────────────────────────────────────────
     # Original MMHCL forward (unchanged)
     # ─────────────────────────────────────────────────────────────────────

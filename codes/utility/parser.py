@@ -64,8 +64,8 @@ def parse_args():
                         help='UI GNN layers')
     
     # ── SGFD arguments ────────────────────────────────────────────────────
-    parser.add_argument('--sgfd_t', type=int, default=100,
-                        help='Temperature for SGFD knowledge distillation softmax')
+    parser.add_argument('--t_decay', type=int, default=100,
+                        help='Temperature for soft labels in teacher-student KD.')
     parser.add_argument('--ce_weight', type=float, default=0.1,
                         help='Weight for SGFD classification + fusion losses')
     parser.add_argument('--kd_weight', type=float, default=0.1,

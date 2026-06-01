@@ -295,46 +295,46 @@ pathlib.Path(record_path).mkdir(parents=True, exist_ok=True)
 
 # ─── helpers to load raw modal features & meta labels ────────────────────────
 
-def _try_load_feat(npy_path, pt_path):
-    """Try .npy first, then .pt; return FloatTensor or None."""
-    if os.path.isfile(npy_path):
-        arr = np.load(npy_path, allow_pickle=True)
-        return torch.from_numpy(arr).float()
-    if os.path.isfile(pt_path):
-        t = torch.load(pt_path)
-        return t.float() if not t.is_floating_point() else t
-    return None
+# def _try_load_feat(npy_path, pt_path):
+#     """Try .npy first, then .pt; return FloatTensor or None."""
+#     if os.path.isfile(npy_path):
+#         arr = np.load(npy_path, allow_pickle=True)
+#         return torch.from_numpy(arr).float()
+#     if os.path.isfile(pt_path):
+#         t = torch.load(pt_path)
+#         return t.float() if not t.is_floating_point() else t
+#     return None
 
 
-def load_raw_features(dataset):
-    """
-    Load per-item raw visual / textual features and category meta-labels.
+# def load_raw_features(dataset):
+#     """
+#     Load per-item raw visual / textual features and category meta-labels.
 
-    Expected files under  ../data/<dataset>/  (same convention as BM3/SGFD):
-        image_feat.npy  or  img_feat.pt   → visual features [n_items, v_dim]
-        text_feat.npy   or  text_feat.pt  → textual features [n_items, t_dim]
-        meta_feat.npy                     → integer category labels [n_items]
+#     Expected files under  ../data/<dataset>/  (same convention as BM3/SGFD):
+#         image_feat.npy  or  img_feat.pt   → visual features [n_items, v_dim]
+#         text_feat.npy   or  text_feat.pt  → textual features [n_items, t_dim]
+#         meta_feat.npy                     → integer category labels [n_items]
 
-    Returns (v_feat, t_feat, meta_label)  where any absent tensor is None.
-    """
-    base = f"../data/{dataset}"
+#     Returns (v_feat, t_feat, meta_label)  where any absent tensor is None.
+#     """
+#     base = f"../data/{dataset}"
 
-    v_feat = _try_load_feat(
-        os.path.join(base, "image_feat.npy"),
-        os.path.join(base, "img_feat.pt")
-    )
-    t_feat = _try_load_feat(
-        os.path.join(base, "text_feat.npy"),
-        os.path.join(base, "text_feat.pt")
-    )
+#     v_feat = _try_load_feat(
+#         os.path.join(base, "image_feat.npy"),
+#         os.path.join(base, "img_feat.pt")
+#     )
+#     t_feat = _try_load_feat(
+#         os.path.join(base, "text_feat.npy"),
+#         os.path.join(base, "text_feat.pt")
+#     )
 
-    meta_path = os.path.join(base, "meta_feat.npy")
-    meta_label = None
-    if os.path.isfile(meta_path):
-        arr = np.load(meta_path, allow_pickle=True)
-        meta_label = torch.from_numpy(arr).long()
+#     meta_path = os.path.join(base, "meta_feat.npy")
+#     meta_label = None
+#     if os.path.isfile(meta_path):
+#         arr = np.load(meta_path, allow_pickle=True)
+#         meta_label = torch.from_numpy(arr).long()
 
-    return v_feat, t_feat, meta_label
+#     return v_feat, t_feat, meta_label
 
 
 # ─── Trainer ─────────────────────────────────────────────────────────────────
@@ -362,35 +362,30 @@ class Trainer(object):
         self.Item_mat = data_config['Item_mat'].cuda()
 
         # ── raw features for SGFD ──────────────────────────────────────
-        v_feat     = data_config.get('v_feat')
-        t_feat     = data_config.get('t_feat')
-        meta_label = data_config.get('meta_label')
+        v_feat    = data_config.get('v_feat', None)
+        t_feat    = data_config.get('t_feat', None)
+        meta_feat = data_config.get('meta_feat', None)
 
         if v_feat is not None:
             v_feat = v_feat.cuda()
         if t_feat is not None:
             t_feat = t_feat.cuda()
-        if meta_label is not None:
-            meta_label = meta_label.cuda()
+        if meta_feat is not None:
+            meta_feat = meta_feat.cuda()
 
-        sgfd_available = (meta_label is not None) and (v_feat is not None or t_feat is not None)
-        if sgfd_available:
-            self.logger.logging("[SGFD] Feature distillation ENABLED "
-                                f"(v_feat={v_feat is not None}, t_feat={t_feat is not None})")
-        else:
-            self.logger.logging("[SGFD] Feature distillation DISABLED "
-                                "(meta_feat.npy / raw modality features not found)")
-
-        # ── model ─────────────────────────────────────────────────────
         self.model = MMHCL(
             self.n_users, self.n_items, self.emb_dim,
-            v_feat=v_feat if sgfd_available else None,
-            t_feat=t_feat if sgfd_available else None,
-            meta_label=meta_label if sgfd_available else None,
+            v_feat=v_feat, t_feat=t_feat, meta_feat=meta_feat,
         ).cuda()
 
-        self.optimizer    = optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         self.lr_scheduler = self.set_lr_scheduler()
+
+        sgfd_status = "ENABLED" if self.model.sgfd_enabled else "DISABLED"
+        self.logger.logging(f"[SGFD] status={sgfd_status}  "
+                            f"ce_weight={args.ce_weight}  "
+                            f"kd_weight={args.kd_weight}  "
+                            f"t_decay={args.t_decay}")
 
     def set_lr_scheduler(self):
         fac       = lambda epoch: 0.96 ** (epoch / 50)
@@ -582,10 +577,9 @@ if __name__ == '__main__':
     config['Item_mat'] = Item_mat
 
     # ── SGFD: load raw features & meta labels ────────────────────────────
-    v_feat, t_feat, meta_label = load_raw_features(args.dataset)
-    config['v_feat']     = v_feat
-    config['t_feat']     = t_feat
-    config['meta_label'] = meta_label
+    config['v_feat']     = data_generator.v_feat
+    config['t_feat']     = data_generator.t_feat
+    config['meta_label'] = data_generator.meta_feat
 
     trainer = Trainer(data_config=config)
     trainer.train()
