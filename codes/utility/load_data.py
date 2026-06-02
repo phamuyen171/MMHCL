@@ -62,10 +62,10 @@ class Data(object):
 
         self.print_statistics()
 
-        self.v_feat = None   # raw image features (n_items × D_v)
-        self.t_feat = None   # raw text  features (n_items × D_t)
-        self.meta_feat = None  # item category labels (n_items,)
-        self._load_raw_features()
+        # self.v_feat = None   # raw image features (n_items × D_v)
+        # self.t_feat = None   # raw text  features (n_items × D_t)
+        # self.meta_feat = None  # item category labels (n_items,)
+        # self._load_raw_features()
 
         self.R = sp.dok_matrix((self.n_users, self.n_items), dtype=np.float32)
         self.R_Item_Interacts = sp.dok_matrix((self.n_items, self.n_items), dtype=np.float32)
@@ -295,30 +295,31 @@ class Data(object):
 
         # ── raw visual features ──────────────────────────────────────────────
         v_path_npy = '../data/{}/image_feat.npy'.format(args.dataset)
-        v_path_pt  = '../data/{}/img_feat.pt'.format(args.dataset)
-        if os.path.isfile(v_path_pt):
-            self.v_feat = torch.load(v_path_pt).float()
-        elif os.path.isfile(v_path_npy):
-            self.v_feat = torch.tensor(np.load(v_path_npy)).float()
+        # v_path_pt  = '../data/{}/img_feat.pt'.format(args.dataset)
+        # if os.path.isfile(v_path_pt):
+        #     self.v_feat = torch.load(v_path_pt).float()
+        if os.path.isfile(v_path_npy):
+            v_feat = torch.tensor(np.load(v_path_npy)).float()
 
         # ── raw text features ────────────────────────────────────────────────
         t_path_npy = '../data/{}/text_feat.npy'.format(args.dataset)
-        t_path_pt  = '../data/{}/text_feat.pt'.format(args.dataset)
-        if os.path.isfile(t_path_pt):
-            self.t_feat = torch.load(t_path_pt).float()
-        elif os.path.isfile(t_path_npy):
-            self.t_feat = torch.tensor(np.load(t_path_npy)).float()
+        # t_path_pt  = '../data/{}/text_feat.pt'.format(args.dataset)
+        # if os.path.isfile(t_path_pt):
+        #     self.t_feat = torch.load(t_path_pt).float()
+        if os.path.isfile(t_path_npy):
+            t_feat = torch.tensor(np.load(t_path_npy)).float()
 
         # ── item category meta-labels ────────────────────────────────────────
         m_path = '../data/{}/item_category.npy'.format(args.dataset)
         if os.path.isfile(m_path):
-            self.meta_feat = torch.tensor(
+            meta_feat = torch.tensor(
                 np.load(m_path, allow_pickle=True)).long()
         else:
             # Fallback: all items assigned to category 0 (single class).
             # SGFD classification loss will be non-informative but harmless.
-            print("[SGFD] WARNING: item_category.npy not found – using dummy labels.")
-            self.meta_feat = torch.zeros(self.n_items, dtype=torch.long)
+            print(f"[SGFD] WARNING: item_category.npy not found – using dummy labels. - {m_path}")
+            meta_feat = torch.zeros(self.n_items, dtype=torch.long)
+        return v_feat, t_feat, meta_feat
 
     def get_U2U_mat(self, norm_type='rw'):
         # U2U_mat default use row normalization,and No-self-connection

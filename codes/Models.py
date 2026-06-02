@@ -248,6 +248,10 @@ class MMHCL(nn.Module):
         self.t_feat = t_feat          # [n_items, t_feat_dim] tensor or None
         self.meta_feat = meta_feat  # (n_items,) – category integer labels
 
+        self.feature_fusion_model = None  # initialized only if meta_feat and ≥1 modality exist
+        self.v_feature_extractor = None
+        self.t_feature_extractor = None
+
         self.sgfd_enabled = (
             meta_feat is not None and
             (v_feat is not None or t_feat is not None)

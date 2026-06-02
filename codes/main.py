@@ -292,51 +292,6 @@ record_path = f"../{args.dataset}/MM/"
 pathlib.Path(path).mkdir(parents=True, exist_ok=True)
 pathlib.Path(record_path).mkdir(parents=True, exist_ok=True)
 
-
-# ─── helpers to load raw modal features & meta labels ────────────────────────
-
-# def _try_load_feat(npy_path, pt_path):
-#     """Try .npy first, then .pt; return FloatTensor or None."""
-#     if os.path.isfile(npy_path):
-#         arr = np.load(npy_path, allow_pickle=True)
-#         return torch.from_numpy(arr).float()
-#     if os.path.isfile(pt_path):
-#         t = torch.load(pt_path)
-#         return t.float() if not t.is_floating_point() else t
-#     return None
-
-
-# def load_raw_features(dataset):
-#     """
-#     Load per-item raw visual / textual features and category meta-labels.
-
-#     Expected files under  ../data/<dataset>/  (same convention as BM3/SGFD):
-#         image_feat.npy  or  img_feat.pt   → visual features [n_items, v_dim]
-#         text_feat.npy   or  text_feat.pt  → textual features [n_items, t_dim]
-#         meta_feat.npy                     → integer category labels [n_items]
-
-#     Returns (v_feat, t_feat, meta_label)  where any absent tensor is None.
-#     """
-#     base = f"../data/{dataset}"
-
-#     v_feat = _try_load_feat(
-#         os.path.join(base, "image_feat.npy"),
-#         os.path.join(base, "img_feat.pt")
-#     )
-#     t_feat = _try_load_feat(
-#         os.path.join(base, "text_feat.npy"),
-#         os.path.join(base, "text_feat.pt")
-#     )
-
-#     meta_path = os.path.join(base, "meta_feat.npy")
-#     meta_label = None
-#     if os.path.isfile(meta_path):
-#         arr = np.load(meta_path, allow_pickle=True)
-#         meta_label = torch.from_numpy(arr).long()
-
-#     return v_feat, t_feat, meta_label
-
-
 # ─── Trainer ─────────────────────────────────────────────────────────────────
 
 class Trainer(object):
@@ -577,9 +532,17 @@ if __name__ == '__main__':
     config['Item_mat'] = Item_mat
 
     # ── SGFD: load raw features & meta labels ────────────────────────────
-    config['v_feat']     = data_generator.v_feat
-    config['t_feat']     = data_generator.t_feat
-    config['meta_label'] = data_generator.meta_feat
+    v_feat, t_feat, meta_feat = data_generator._load_raw_features()
+    config['v_feat']     = v_feat
+    config['t_feat']     = t_feat
+    config['meta_feat'] = meta_feat
+
+    if v_feat is None:
+        print("[SGFD] WARNING: visual features not found – SGFD on item side will be disabled.")
+    if t_feat is None:
+        print("[SGFD] WARNING: textual features not found – SGFD on item side will be disabled.")   
+    if meta_feat is None:
+        print("[SGFD] WARNING: meta labels not found – SGFD classification loss will be non-informative.")
 
     trainer = Trainer(data_config=config)
     trainer.train()
