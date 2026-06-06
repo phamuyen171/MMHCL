@@ -7,15 +7,19 @@ from .TeacherStudentModel import TeacherModel,StudentModel
 class FeatureExtractorModel(torch.nn.Module):
     def __init__(self, feature, feature_dim, meta_label, dim_latent=64, t=100, is_pruning=True):
         super(FeatureExtractorModel, self).__init__()
-        self.meta_label = meta_label
+        # self.meta_label = meta_label
         self.label_size = len(set(meta_label.tolist()))
         self.dim_latent = dim_latent
         self.is_pruning = is_pruning
-        self.features = feature
+        # self.features = feature
         self.t = t
         self.kd_weight = []
         # MLP classifier
         self.category_classification = nn.Linear(self.dim_latent, self.label_size)
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.features = feature.to(device)
+        self.meta_label = meta_label.to(device)
 
         self.teacher_model = TeacherModel(feature_dim, self.dim_latent,  self.is_pruning)
         self.student_model = StudentModel(feature_dim, self.dim_latent,  self.is_pruning)
