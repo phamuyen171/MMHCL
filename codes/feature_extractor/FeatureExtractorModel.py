@@ -25,8 +25,10 @@ class FeatureExtractorModel(torch.nn.Module):
         self.student_model = StudentModel(feature_dim, self.dim_latent,  self.is_pruning)
 
     def forward(self, nodes):
+        print(f'meta_label: {self.meta_label.shape}, feature: {self.features.shape}, nodes: {nodes.shape}')
         node_feature = self.features[nodes]
         node_label = self.meta_label[nodes]
+        
         # 1. obtain the probability distribution of teacher model
         teacher_x = self.teacher_model(node_feature)
         teacher_result = self.category_classification(teacher_x)
