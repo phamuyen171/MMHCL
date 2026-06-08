@@ -208,6 +208,10 @@ class MMHCL(nn.Module):
         items = pos_items.long()
         num_modal = 0
 
+        print(f"items range: {items.min()} ~ {items.max()}")
+        print(f"t_features shape: {self.t_feature_extractor.features.shape}")
+        print(f"meta_label shape: {self.t_feature_extractor.meta_label.shape}")
+
         t_student_feat = v_student_feat = None
         t_class_loss = t_kd_loss = t_feature_loss = 0.0
         v_class_loss = v_kd_loss = v_feature_loss = 0.0

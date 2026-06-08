@@ -25,7 +25,7 @@ class FeatureExtractorModel(torch.nn.Module):
         self.student_model = StudentModel(feature_dim, self.dim_latent,  self.is_pruning)
 
     def forward(self, nodes):
-        print(f'meta_label: {self.meta_label.shape}, feature: {self.features.shape}, nodes: {nodes.shape}')
+        # print(f'meta_label: {self.meta_label.shape}, feature: {self.features.shape}, nodes: {nodes}')
         node_feature = self.features[nodes]
         node_label = self.meta_label[nodes]
         
