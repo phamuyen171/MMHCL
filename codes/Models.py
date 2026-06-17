@@ -101,6 +101,7 @@ class MMHCL(nn.Module):
 
         self.ce_weight=args.ce_weight 
         self.kd_weight=args.kd_weight 
+        self.sgfd_weight=args.sgfd_weight
 
         self.feature_fusion_model = None  # initialized only if meta_feat and ≥1 modality exist
         self.v_feature_extractor = None
