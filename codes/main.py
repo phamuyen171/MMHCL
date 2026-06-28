@@ -263,7 +263,8 @@ if __name__ == '__main__':
 
     if args.dataset == "Tiktok":
         Item_mat = data_generator.get_tiktok_I2I_Hypergraph_mul_mat()
-    elif args.dataset in ["Clothing", "Sports"]:
+    # elif args.dataset in ["Clothing", "Sports"]:
+    else:
         Item_mat = data_generator.get_I2I_Hypergraph_mul_mat()
 
     config['UI_mat']   = UI_mat
