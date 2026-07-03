@@ -251,6 +251,7 @@ if __name__ == '__main__':
             Item_mat=Item_mat,
             norm_type=args.u2u_dense_norm
         )
+        print("Use densify U2U semantic matrix for training.")
     else:
         User_mat = data_generator.get_U2U_mat()
 
