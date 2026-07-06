@@ -243,7 +243,7 @@ if __name__ == '__main__':
     """multimodal"""
     if args.dataset =="Tiktok":
         Item_mat=data_generator.get_tiktok_I2I_Hypergraph_mul_mat()#Three modalities for tiktok.
-    elif args.dataset in ["Clothing","Sports"]:
+    elif args.dataset in ["Clothing","Sports", "Baby]:
         Item_mat = data_generator.get_I2I_Hypergraph_mul_mat()#Two modalities, for Clothing and Sports.
     config['UI_mat'] = UI_mat
     config['User_mat'] = User_mat
